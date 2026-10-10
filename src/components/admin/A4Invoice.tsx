@@ -124,7 +124,7 @@ export function buildA4HTML(
     date = new Date();
   }
 
-  // Real date e.g. "27 September 2026"
+  // Real date e.g. "10 October 2026"
   const dateStr = date.toLocaleDateString("en-GB", {
     timeZone: "Asia/Kolkata",
     day: "numeric",
@@ -132,7 +132,7 @@ export function buildA4HTML(
     year: "numeric",
   });
 
-  // Real timing e.g. "10:26 am"
+  // Real timing e.g. "12:45 pm"
   const timeStr = date
     .toLocaleTimeString("en-IN", {
       timeZone: "Asia/Kolkata",
@@ -142,128 +142,156 @@ export function buildA4HTML(
     })
     .toLowerCase();
 
-  let totalTaxable = 0;
-  let totalGstAmount = 0;
+  // Clean bill number e.g. "Bill No - 01"
+  const rawSaleNo = (sale.sale_number || "01").trim();
+  const billNoDisplay = /^Bill\s*No/i.test(rawSaleNo)
+    ? rawSaleNo
+    : `Bill No - ${rawSaleNo.replace(/^(ZR-POS-|POS-|BILL-)/i, "")}`;
 
-  // Detect whether item prices are base rates (exclusive of GST) or gross totals (inclusive)
-  const isAdditive =
-    sale.total > (sale.subtotal - (sale.discount || 0)) ||
-    Math.round((sale.total - sale.subtotal) * 100) / 100 > 0;
+  // Store information with photo defaults
+  const storeAddress =
+    store.storeAddress || "In front of Hanumani Temple, Awal Napsar, Kota, Rajasthan";
+  const storePhone = store.contactPhone || "9070172777";
+  const storeEmail = store.contactEmail || "hello@zerahkids.com";
+  const logoSrc =
+    typeof window !== "undefined" && window.location
+      ? `${window.location.origin}/logo.png`
+      : "/logo.png";
+
+  const paymentDisplay = sale.payment_method
+    ? sale.payment_method.toUpperCase()
+    : "CASH";
+
+  // Determine overall percentage discount if configured on sale
+  const overallDiscountPct =
+    sale.discount_type === "percentage" || (sale.discount_type as string) === "percent"
+      ? Number(sale.discount_value || 0)
+      : sale.subtotal > 0 && sale.discount > 0
+        ? Math.round((sale.discount / (sale.subtotal + sale.discount)) * 100)
+        : 0;
+
+  let totalMrp = 0;
+  let totalCgst = 0;
+  let totalSgst = 0;
+  let totalDiscount = 0;
+  let grandTotal = 0;
 
   const itemRows = items
     .map((item, idx) => {
-      const gstRate = item.gst_rate != null ? Number(item.gst_rate) : 0;
-      let unitRate: number;
-      let gstAmount: number;
-      let lineTotal: number;
+      const qty = Math.max(1, item.qty || 1);
+      const gstRate = item.gst_rate != null ? Number(item.gst_rate) : 5; // default 5% (2.5% CGST + 2.5% SGST)
+      const cgstRate = gstRate / 2;
+      const sgstRate = gstRate / 2;
 
-      if (isAdditive && gstRate > 0) {
-        // Exclusive rate mode (typical POS with additive GST)
-        unitRate = item.price;
-        const lineBase = unitRate * item.qty;
-        gstAmount = Math.round(lineBase * (gstRate / 100) * 100) / 100;
-        lineTotal = lineBase + gstAmount;
-        totalTaxable += lineBase;
-      } else if (gstRate > 0) {
-        // Inclusive rate mode
-        lineTotal = item.price * item.qty;
-        const taxable = Math.round((lineTotal / (1 + gstRate / 100)) * 100) / 100;
-        gstAmount = Math.round((lineTotal - taxable) * 100) / 100;
-        unitRate = Math.round((taxable / item.qty) * 100) / 100;
-        totalTaxable += taxable;
-      } else {
-        unitRate = item.price;
-        gstAmount = 0;
-        lineTotal = unitRate * item.qty;
-        totalTaxable += lineTotal;
+      // Base unit MRP
+      const unitMrp =
+        item.mrp && item.mrp > item.price ? item.mrp : item.mrp || item.price;
+      const lineMrp = Math.round(unitMrp * qty * 100) / 100;
+
+      // Line discount calculation
+      let itemDiscountAmount = 0;
+      let itemDiscountPct = 0;
+
+      if (item.mrp && item.mrp > item.price) {
+        itemDiscountAmount = Math.round((item.mrp - item.price) * qty * 100) / 100;
+        itemDiscountPct = Math.round(((item.mrp - item.price) / item.mrp) * 100);
+      } else if (overallDiscountPct > 0) {
+        itemDiscountPct = overallDiscountPct;
+        itemDiscountAmount = Math.round((lineMrp * (itemDiscountPct / 100)) * 100) / 100;
+      } else if (sale.discount > 0 && items.length === 1) {
+        itemDiscountAmount = Math.round(sale.discount * 100) / 100;
+        itemDiscountPct = lineMrp > 0 ? Math.round((itemDiscountAmount / lineMrp) * 100) : 0;
       }
 
-      totalGstAmount += gstAmount;
+      // GST computed from line taxable / rate
+      const lineCgst = Math.round((lineMrp * (cgstRate / 100)) * 100) / 100;
+      const lineSgst = Math.round((lineMrp * (sgstRate / 100)) * 100) / 100;
+      const lineTotal = Math.round((lineMrp - itemDiscountAmount + lineCgst + lineSgst) * 100) / 100;
 
-      const variantDetails = [
-        item.color ? `Color: ${escapeHtml(item.color)}` : "",
-        item.size ? `Size: ${escapeHtml(item.size)}` : "",
-      ]
-        .filter(Boolean)
-        .join(" · ");
+      totalMrp += lineMrp;
+      totalCgst += lineCgst;
+      totalSgst += lineSgst;
+      totalDiscount += itemDiscountAmount;
+      grandTotal += lineTotal;
+
+      let discountDisplay = "—";
+      if (itemDiscountAmount > 0) {
+        discountDisplay = `
+          <div style="font-weight: 800; font-size: 11px;">${itemDiscountPct}%</div>
+          <div style="font-weight: 700; font-size: 11px; white-space: nowrap;">- ₹${itemDiscountAmount.toFixed(2)}</div>
+        `;
+      }
 
       const skuText = item.sku ? `SKU: ${escapeHtml(item.sku)}` : "";
-      const subInfo = [variantDetails, skuText].filter(Boolean).join(" · ");
-
-      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
-      const gstRateStr = gstRate > 0 ? `${gstRate}%` : "0%";
+      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "-";
 
       return `
-    <tr style="border-bottom: 1px solid #f3f4f6;">
-      <td style="padding: 10px 6px; text-align: center; font-weight: 700; color: #111; vertical-align: top;">${idx + 1}</td>
-      <td style="padding: 10px 8px; text-align: left; vertical-align: top;">
-        <div style="font-weight: 700; color: #111; font-size: 12px;">${escapeHtml(item.name)}</div>
-        ${subInfo ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 3px;">${subInfo}</div>` : ""}
+    <tr style="vertical-align: top;">
+      <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
+      <td style="padding: 10px 6px; text-align: left;">
+        <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(item.name)}</div>
+        ${skuText ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 2px;">${skuText}</div>` : ""}
       </td>
-      <td style="padding: 10px 8px; text-align: center; font-family: monospace; font-size: 11px; color: #374151; vertical-align: top;">${hsnDisplay}</td>
-      <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #111; vertical-align: top;">${item.qty}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #111; vertical-align: top;">₹${unitRate.toFixed(2)}</td>
-      <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #374151; vertical-align: top;">${gstRateStr}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #374151; vertical-align: top;">₹${gstAmount.toFixed(2)}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 800; color: #111; vertical-align: top;">₹${lineTotal.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: center; font-family: monospace; font-size: 11.5px; color: #000;">${hsnDisplay}</td>
+      <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${qty}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineMrp.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineCgst.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineSgst.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
+      <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${lineTotal.toFixed(2)}</td>
     </tr>`;
     })
     .join("");
 
-  const discountLabel =
-    sale.discount > 0
-      ? `Discount${sale.discount_type === "percentage" ? ` (${sale.discount_value}%)` : sale.discount_type === "fixed" ? ` (₹${sale.discount_value})` : ""}`
-      : "";
+  // Determine overall discount cell for G.TOTAL row
+  let totalDiscountDisplay = "—";
+  if (totalDiscount > 0) {
+    const gDiscountPct = totalMrp > 0 ? Math.round((totalDiscount / totalMrp) * 100) : 0;
+    totalDiscountDisplay = `
+      <div style="font-weight: 800; font-size: 11px;">${overallDiscountPct > 0 ? `${overallDiscountPct}%` : `${gDiscountPct}%`}</div>
+      <div style="font-weight: 800; font-size: 11px; white-space: nowrap;">- ₹${totalDiscount.toFixed(2)}</div>
+    `;
+  }
 
-  const paymentDisplay = sale.payment_method
-    ? sale.payment_method.charAt(0).toUpperCase() + sale.payment_method.slice(1).toLowerCase()
-    : "Cash";
-
-  const subtotalDisplay = (totalTaxable > 0 ? totalTaxable : sale.subtotal).toFixed(2);
-  const logoSrc = typeof window !== "undefined" && window.location ? `${window.location.origin}/logo.png` : "/logo.png";
+  // Fallback to sale.total if closely matching
+  const finalGrandTotal =
+    sale.total > 0 && Math.abs(grandTotal - sale.total) < 2 ? sale.total : grandTotal;
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <title>Tax Invoice ${escapeHtml(sale.sale_number)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   @page {
     size: A4 portrait;
-    margin: 15mm 12mm 15mm 12mm;
+    margin: 14mm 14mm 14mm 14mm;
   }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 11px;
-    color: #111;
+    color: #000;
     background: #fff;
-    line-height: 1.45;
+    line-height: 1.4;
     max-width: 210mm;
     margin: 0 auto;
-    padding: 0 2mm;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   .header {
     text-align: center;
-    margin-bottom: 6px;
-  }
-  .totals {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 14px;
-  }
-  .footer {
-    border-top: 2px solid #dc2626;
-    margin-top: 28px;
-    padding-top: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    margin-bottom: 8px;
   }
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 12px;
+    margin-top: 14px;
+    margin-bottom: 20px;
   }
   .no-print { display: none !important; }
 </style>
@@ -272,169 +300,127 @@ export function buildA4HTML(
 
 <!-- ── HEADER ── -->
 <div class="header">
-  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px;">
-    <img loading="lazy" decoding="async" src="${logoSrc}" alt="ZÉRAH" style="width: 44px; height: 44px; object-fit: contain; border-radius: 50%;" />
-    <span style="font-size: 20px; font-weight: 900; color: #dc2626; letter-spacing: 0.5px; text-transform: uppercase;">ZÉRAH BABY &amp; KIDS STORE</span>
+  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 3px;">
+    <img loading="lazy" decoding="async" src="${logoSrc}" alt="ZÉRAH" style="width: 38px; height: 38px; object-fit: contain; border-radius: 50%;" />
+    <span style="font-size: 19px; font-weight: 900; color: #000; letter-spacing: 0.5px; text-transform: uppercase;">ZÉRAH BABY &amp; KIDS STORE</span>
   </div>
   <div style="font-size: 11px; color: #111; line-height: 1.4;">
-    In front of Hanumanji Temple, Atwal Nagar, Kota, Rajasthan
+    ${escapeHtml(storeAddress)}
   </div>
   <div style="font-size: 11px; color: #111; line-height: 1.4;">
-    Ph: ${escapeHtml(store.contactPhone || "9057074777")} &nbsp;|&nbsp; ${escapeHtml(store.contactEmail || "hello@zerahkids.com")}
+    Ph: ${escapeHtml(storePhone)} | ${escapeHtml(storeEmail)}
   </div>
-  <div style="border-bottom: 2px solid #dc2626; margin-top: 10px; width: 100%;"></div>
+  <div style="border-bottom: 1.5px solid #000; margin-top: 8px; width: 100%;"></div>
 </div>
 
 <!-- ── INVOICE META ── -->
-<div style="margin: 12px 0 16px 0;">
-  <div style="color: #dc2626; font-size: 22px; font-weight: 900; letter-spacing: 0.5px; line-height: 1.1;">TAX INVOICE</div>
-  <div style="color: #111; font-size: 15px; font-weight: 800; margin-top: 4px;">${escapeHtml(sale.sale_number)}</div>
-  <div style="color: #111; font-size: 11.5px; margin-top: 4px;">${dateStr}</div>
-  <div style="color: #111; font-size: 11.5px; margin-top: 2px;">${timeStr}</div>
+<div style="margin: 14px 0 16px 0;">
+  <div style="color: #000; font-size: 26px; font-weight: 900; letter-spacing: -0.3px; line-height: 1.1;">TAX INVOICE</div>
+  <div style="color: #000; font-size: 17px; font-weight: 800; margin-top: 4px;">${escapeHtml(billNoDisplay)}</div>
+  <div style="color: #111; font-size: 12px; margin-top: 5px;">${dateStr}</div>
+  <div style="color: #111; font-size: 12px; margin-top: 2px;">${timeStr}</div>
 </div>
 
 ${
   sale.status === "pending_sync" || sale.is_offline_queued
-    ? `<div style="margin: 10px 0; padding: 8px 12px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 6px; text-align: center; color: #b45309; font-weight: 700; font-size: 11px;">
+    ? `<div style="margin: 8px 0; padding: 6px 10px; border: 1px dashed #000; text-align: center; color: #000; font-weight: 800; font-size: 10.5px;">
         ⚡ PENDING CLOUD SYNCHRONIZATION — Recorded offline, syncing automatically.
        </div>`
     : ""
 }
 
-<!-- ── BILLED TO & PAYMENT MODE CARDS ── -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+<!-- ── BILLED TO & PAYMENT MODE ── -->
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; padding-right: 12px;">
   <!-- BILLED TO -->
-  <div style="background: #fff5f5; border: 1px solid #fee2e2; border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 12px;">
-    <div style="width: 34px; height: 34px; border-radius: 50%; background: #fee2e2; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    </div>
+  <div style="display: flex; align-items: flex-start; gap: 10px;">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px; flex-shrink: 0;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     <div>
-      <div style="color: #dc2626; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">BILLED TO</div>
-      <div style="color: #111; font-size: 14px; font-weight: 800; margin-top: 2px;">${escapeHtml(sale.customer_name || "Walk-in Customer")}</div>
-      <div style="color: #374151; font-size: 11px; margin-top: 2px;">Ph: ${escapeHtml(sale.customer_phone || "—")}</div>
-      ${sale.customer_email ? `<div style="color: #6b7280; font-size: 10px; margin-top: 1px;">${escapeHtml(sale.customer_email)}</div>` : ""}
+      <div style="color: #111; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">BILLED TO</div>
+      <div style="color: #000; font-size: 15px; font-weight: 800; margin-top: 2px;">${escapeHtml(sale.customer_name || "Walk-in Customer")}</div>
+      <div style="color: #111; font-size: 11.5px; margin-top: 2px;">Ph: ${escapeHtml(sale.customer_phone || "--")}</div>
     </div>
   </div>
 
   <!-- PAYMENT MODE -->
-  <div style="background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 12px;">
-    <div style="width: 34px; height: 34px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-    </div>
+  <div style="display: flex; align-items: flex-start; gap: 10px;">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px; flex-shrink: 0;"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
     <div>
-      <div style="color: #dc2626; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">PAYMENT MODE</div>
+      <div style="color: #111; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">PAYMENT MODE</div>
       <div style="margin-top: 4px;">
-        <span style="border: 1.5px solid #16a34a; background: #fff; color: #16a34a; border-radius: 9999px; padding: 2px 14px; font-size: 11px; font-weight: 800; display: inline-block; text-transform: uppercase;">
+        <span style="border: 1px solid #9ca3af; background: #e5e7eb; color: #000; border-radius: 9999px; padding: 2px 16px; font-size: 11.5px; font-weight: 800; display: inline-block; text-transform: uppercase;">
           ${escapeHtml(paymentDisplay)}
         </span>
       </div>
-      <div style="color: #374151; font-size: 11px; margin-top: 4px;">Status: PAID</div>
+      <div style="color: #111; font-size: 11.5px; margin-top: 4px;">Status: PAID</div>
     </div>
   </div>
 </div>
 
 <!-- ── ITEMS TABLE ── -->
 <table>
-  <thead style="background: #fff5f5; border-bottom: 1.5px solid #fee2e2;">
-    <tr>
-      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 35px;">#</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: left;">PRODUCT</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 65px;">HSN</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 45px;">QTY</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 65px;">RATE</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 65px;">GST RATE</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 75px;">GST AMOUNT</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 75px;">TOTAL</th>
+  <thead>
+    <tr style="border-bottom: 1.5px solid #000;">
+      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 30px;">#</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 50px;">HSN</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 40px;">QTY</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 90px; line-height: 1.2;">M.R.P.<br/>(ORIGINAL)</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">CGST<br/>2.5%</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">SGST<br/>2.5%</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 80px;">DISCOUNT</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px;">TOTAL</th>
     </tr>
   </thead>
   <tbody>
     ${itemRows}
+    <tr style="border-top: 1.5px solid #000; border-bottom: 2px solid #000;">
+      <td colspan="4" style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; color: #000;">
+        G.TOTAL
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ₹${totalMrp.toFixed(2)}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ₹${totalCgst.toFixed(2)}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ₹${totalSgst.toFixed(2)}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ${totalDiscountDisplay}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; color: #000;">
+        ₹${finalGrandTotal.toFixed(2)}
+      </td>
+    </tr>
   </tbody>
 </table>
 
-<!-- ── TOTALS ── -->
-<div class="totals">
-  <div style="width: 250px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff;">
-    <div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #374151;">
-      <span>Subtotal</span>
-      <span>₹${subtotalDisplay}</span>
-    </div>
-    ${
-      totalGstAmount > 0
-        ? `<div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; background: #fef2f2; color: #dc2626; font-weight: 700; border-top: 1px solid #fee2e2; border-bottom: 1px solid #fee2e2;">
-            <span>Total GST</span>
-            <span>₹${totalGstAmount.toFixed(2)}</span>
-          </div>`
-        : ""
-    }
-    ${
-      sale.coupon_discount && sale.coupon_discount > 0
-        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #15803d;">
-            <span>Coupon (${escapeHtml(sale.coupon_code || "PROMO")})</span>
-            <span>−₹${sale.coupon_discount.toFixed(2)}</span>
-          </div>`
-        : ""
-    }
-    ${
-      sale.discount > 0
-        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #15803d;">
-            <span>${escapeHtml(discountLabel)}</span>
-            <span>−₹${sale.discount.toFixed(2)}</span>
-          </div>`
-        : ""
-    }
-    ${
-      sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #047857; font-weight: 600;">
-            <span>Store Credit</span>
-            <span>−₹${sale.store_credit_used.toFixed(2)}</span>
-          </div>`
-        : ""
-    }
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
-      <span style="font-size: 18px; font-weight: 900; color: #111;">TOTAL</span>
-      <span style="font-size: 18px; font-weight: 900; color: #111;">₹${sale.total.toFixed(2)}</span>
-    </div>
-    <div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #4b5563;">
-      <span>Payment Method</span>
-      <span>${escapeHtml(paymentDisplay)}</span>
-    </div>
-  </div>
-</div>
-
-${
-  sale.notes
-    ? `<div style="margin-top: 12px; font-size: 10px; color: #555;">
-    <strong>Notes:</strong> ${escapeHtml(sale.notes)}
-  </div>`
-    : ""
-}
-
 <!-- ── FOOTER ── -->
-<div class="footer">
+<div style="border-top: 1.5px solid #000; margin-top: 24px; padding-top: 14px; display: flex; justify-content: space-between; align-items: flex-start;">
   <div style="display: flex; flex-direction: column; gap: 8px;">
     <div>
       <div style="display: flex; align-items: center; gap: 6px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
-        <span style="font-size: 11px; font-weight: 800; color: #111;">Return &amp; Exchange Policy:</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+        <span style="font-size: 11.5px; font-weight: 800; color: #000;">Return &amp; Exchange Policy:</span>
       </div>
-      <div style="font-size: 9.5px; color: #4b5563; margin-top: 2px; margin-left: 21px;">Exchange/Return within 7 days with original receipt &amp; tags intact.</div>
+      <div style="font-size: 9.5px; color: #374151; margin-top: 2px; margin-left: 22px;">Exchange/returns within 7 days with original receipt &amp; tags intact.</div>
     </div>
     <div style="display: flex; align-items: center; gap: 6px;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-      <span style="font-size: 10.5px; font-weight: 800; color: #111;">Website:</span>
-      <a href="https://zerahkids.com" style="font-size: 10.5px; font-weight: 800; color: #dc2626; text-decoration: none;">zerahkids.com</a>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      <span style="font-size: 11px; font-weight: 800; color: #000;">Website:</span>
+      <span style="font-size: 11px; font-weight: 800; color: #000;">zerahkids.com</span>
     </div>
   </div>
 
-  <div style="width: 1.5px; height: 44px; background: #374151; margin: 0 16px;"></div>
+  <div style="width: 1.5px; height: 48px; background: #000; margin: 0 16px;"></div>
 
   <div style="text-align: right;">
     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-      <span style="font-size: 11.5px; font-weight: 800; color: #dc2626;">Thank You for Shopping!</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span style="font-size: 11.5px; font-weight: 800; color: #000;">Thank You for Shopping!</span>
     </div>
-    <div style="font-family: 'Brush Script MT', 'Caveat', 'Segoe Script', cursive, sans-serif; font-size: 32px; font-weight: bold; color: #dc2626; line-height: 1.1; margin-top: 3px;">
+    <div style="font-family: 'Caveat', 'Segoe Script', 'Brush Script MT', 'Dancing Script', cursive, sans-serif; font-size: 32px; font-weight: 700; color: #000; line-height: 1.1; margin-top: 4px;">
       Visit Again <span style="font-size: 22px; vertical-align: middle;">&#9825;</span>
     </div>
   </div>
