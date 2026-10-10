@@ -2437,6 +2437,11 @@ export function POSTab() {
         };
       });
 
+    if (payableAfterCredit > 0 && paymentMethod === "cash" && typeof cashTendered !== "number") {
+      toast.error("Enter the cash received, or select Due / Credit if the customer will pay later.");
+      return;
+    }
+
     if (payableAfterCredit > 0 && paymentMethod === "due") {
       if (customerMode === "walkin" || !customerName.trim()) {
         toast.error("Select a named customer before recording an unpaid/due sale.");
