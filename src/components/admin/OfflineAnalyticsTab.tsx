@@ -50,6 +50,7 @@ import {
   RotateCcw,
   RefreshCw,
   AlertTriangle,
+  Tag,
   Calendar,
   Check,
   Printer,
