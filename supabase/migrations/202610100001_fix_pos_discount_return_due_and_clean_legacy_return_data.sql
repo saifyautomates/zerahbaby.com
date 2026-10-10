@@ -575,10 +575,20 @@ DECLARE
   item_orig_sale_item_id uuid;
   v_item_returnable int;
   computed_total_refund numeric := 0;
-  v_previous_refunds numeric := 0;
+  computed_return_value numeric := 0;
+  computed_return_subtotal numeric := 0;
+  v_previous_return_value numeric := 0;
+  v_previous_refunds_issued numeric := 0;
   v_return_amount_remaining numeric := 0;
   v_line_refund_total numeric := 0;
   v_remaining_sale_refundable numeric := 0;
+  v_collected_total numeric := 0;
+  v_remaining_net_sale_value numeric := 0;
+  v_returned_item_amount numeric := 0;
+  v_item_remaining_value numeric := 0;
+  v_item_requested_refund numeric := 0;
+  v_original_item_units integer := 0;
+  v_seen_sale_item_ids uuid[] := ARRAY[]::uuid[];
   v_existing_return record;
   v_orig_sale record;
   v_orig_item record;
@@ -676,7 +686,8 @@ BEGIN
 
   -- 4. Validate Original Sale
   IF _original_sale_id IS NOT NULL THEN
-    SELECT id, sale_number, total, return_status INTO v_orig_sale
+    SELECT id, sale_number, total, return_status, amount_paid, payment_status, store_credit_used
+    INTO v_orig_sale
     FROM public.offline_sales
     WHERE id = _original_sale_id
     FOR UPDATE;
@@ -684,10 +695,13 @@ BEGIN
     IF v_orig_sale.id IS NOT NULL THEN
       v_clean_sale_id := v_orig_sale.id;
       v_orig_sale_number := v_orig_sale.sale_number;
+    ELSE
+      RAISE EXCEPTION 'Original POS sale % was not found. Refresh Sales History and select the original sale again.', _original_sale_id;
     END IF;
   END IF;
 
-  -- 5. Calculate Return Amount & Returnable Units with Safe NULLIF
+  -- 5. Calculate returned sale value from discounted historical item prices.
+  -- Refund amount is calculated separately after outstanding sale value is offset.
   FOR elem IN SELECT * FROM jsonb_array_elements(_items)
   LOOP
     item_qty := COALESCE((elem->>'quantity')::int, (elem->>'qty')::int, 1);
@@ -698,50 +712,86 @@ BEGIN
     item_orig_sale_item_id := (elem->>'original_sale_item_id')::uuid;
 
     IF item_orig_sale_item_id IS NOT NULL THEN
+      IF item_orig_sale_item_id = ANY(v_seen_sale_item_ids) THEN
+        RAISE EXCEPTION 'A sale item can appear only once in a single return. Combine the quantities for that item.';
+      END IF;
+      v_seen_sale_item_ids := array_append(v_seen_sale_item_ids, item_orig_sale_item_id);
+
       SELECT * INTO v_orig_item
       FROM public.offline_sale_items
       WHERE id = item_orig_sale_item_id
       FOR UPDATE;
 
-      IF v_orig_item.id IS NOT NULL THEN
-        -- quantity_returnable/returnable_qty already represent the remaining
-        -- count after a return. Always derive eligibility from original sold
-        -- quantity minus the returned count so repeated partial returns do not
-        -- subtract returned units twice.
-        v_item_returnable := GREATEST(
-          0,
-          COALESCE(
-            NULLIF(v_orig_item.quantity_sold, 0),
-            NULLIF(v_orig_item.qty, 0),
-            NULLIF(v_orig_item.quantity, 0),
-            1
-          ) - GREATEST(
-            COALESCE(v_orig_item.quantity_returned, 0),
-            COALESCE(v_orig_item.returned_quantity, 0)
-          )
-        );
+      IF v_orig_item.id IS NULL THEN
+        RAISE EXCEPTION 'The original sale item % was not found. Refresh Sales History and select the original item again.', item_orig_sale_item_id;
+      END IF;
 
-        IF item_qty > v_item_returnable THEN
-          RAISE EXCEPTION 'Cannot return % unit(s) of %. Only % returnable unit(s) remain.',
-            item_qty, COALESCE(v_orig_item.name, 'item'), v_item_returnable;
-        END IF;
+      v_original_item_units := GREATEST(
+        1,
+        COALESCE(
+          NULLIF(v_orig_item.quantity_sold, 0),
+          NULLIF(v_orig_item.qty, 0),
+          NULLIF(v_orig_item.quantity, 0),
+          1
+        )
+      );
+      v_item_returnable := GREATEST(
+        0,
+        v_original_item_units - GREATEST(
+          COALESCE(v_orig_item.quantity_returned, 0),
+          COALESCE(v_orig_item.returned_quantity, 0)
+        )
+      );
 
-        item_refund_price := COALESCE(
-          NULLIF(v_orig_item.final_unit_paid_price, 0),
-          NULLIF(v_orig_item.unit_selling_price, 0),
-          NULLIF(v_orig_item.price, 0),
-          (elem->>'refund_price')::numeric,
-          (elem->>'price')::numeric,
-          0
-        );
+      IF item_qty > v_item_returnable THEN
+        RAISE EXCEPTION 'Cannot return % unit(s) of %. Only % returnable unit(s) remain.',
+          item_qty, COALESCE(v_orig_item.name, 'item'), v_item_returnable;
+      END IF;
+
+      item_refund_price := COALESCE(
+        NULLIF(v_orig_item.final_unit_paid_price, 0),
+        NULLIF(v_orig_item.unit_selling_price, 0),
+        NULLIF(v_orig_item.price, 0),
+        (elem->>'refund_price')::numeric,
+        (elem->>'price')::numeric,
+        0
+      );
+
+      computed_return_subtotal := computed_return_subtotal
+        + ROUND(COALESCE(NULLIF(v_orig_item.price, 0), item_refund_price) * item_qty, 2);
+
+      SELECT COALESCE(SUM(ri.total), 0)
+      INTO v_returned_item_amount
+      FROM public.offline_return_items ri
+      WHERE ri.original_sale_item_id = item_orig_sale_item_id;
+
+      v_item_remaining_value := GREATEST(
+        0,
+        ROUND(item_refund_price * v_original_item_units, 2) - v_returned_item_amount
+      );
+
+      IF item_qty >= v_item_returnable THEN
+        -- The last returned units absorb line-level rounding, so repeated
+        -- partial returns add up to the exact net sale value of the whole line.
+        v_item_requested_refund := v_item_remaining_value;
       ELSE
-        item_refund_price := COALESCE((elem->>'refund_price')::numeric, (elem->>'price')::numeric, 0);
+        v_item_requested_refund := LEAST(
+          v_item_remaining_value,
+          ROUND(item_refund_price * item_qty, 2)
+        );
       END IF;
     ELSE
-      item_refund_price := COALESCE((elem->>'refund_price')::numeric, (elem->>'price')::numeric, 0);
+      item_refund_price := COALESCE(
+        (elem->>'refund_price')::numeric,
+        (elem->>'price')::numeric,
+        0
+      );
+      computed_return_subtotal := computed_return_subtotal
+        + ROUND(item_refund_price * item_qty, 2);
+      v_item_requested_refund := ROUND(item_refund_price * item_qty, 2);
     END IF;
 
-    computed_total_refund := computed_total_refund + ROUND((item_refund_price * item_qty), 2);
+    computed_return_value := computed_return_value + GREATEST(0, v_item_requested_refund);
     item_count := item_count + 1;
   END LOOP;
 
@@ -749,10 +799,13 @@ BEGIN
     RAISE EXCEPTION 'Return must contain at least one valid item';
   END IF;
 
-  -- Never refund more than the original discounted sale value across multiple returns.
+  -- The sale-value return reduces revenue and outstanding due.
+  -- The actual payout/credit may be smaller when the customer had an unpaid balance.
   IF v_clean_sale_id IS NOT NULL AND v_orig_sale.id IS NOT NULL THEN
-    SELECT COALESCE(SUM(r.refund_amount), 0)
-    INTO v_previous_refunds
+    SELECT
+      COALESCE(SUM(COALESCE(NULLIF(r.refund_total, 0), r.refund_amount)), 0),
+      COALESCE(SUM(r.refund_amount), 0)
+    INTO v_previous_return_value, v_previous_refunds_issued
     FROM public.offline_returns r
     WHERE r.original_sale_id = v_clean_sale_id
        OR r.linked_sale_id = v_clean_sale_id
@@ -760,26 +813,58 @@ BEGIN
 
     v_remaining_sale_refundable := GREATEST(
       0,
-      COALESCE(v_orig_sale.total, computed_total_refund) - v_previous_refunds
+      COALESCE(v_orig_sale.total, computed_return_value) - v_previous_return_value
     );
 
-    -- Only tolerate small paise differences from per-line unit-price rounding.
-    -- A larger mismatch indicates inconsistent old sale snapshots and should stop
-    -- instead of quietly issuing a smaller credit than the returned product value.
-    IF computed_total_refund > v_remaining_sale_refundable + GREATEST(0.05, item_count * 0.01) THEN
+    IF computed_return_value > v_remaining_sale_refundable + GREATEST(0.05, item_count * 0.01) THEN
       RAISE EXCEPTION
-        'Return value ₹% exceeds the remaining refundable sale balance ₹%. Review the original sale pricing before processing this return.',
-        ROUND(computed_total_refund, 2),
+        'Return value ₹% exceeds the remaining refundable sale value ₹%. Review the original sale pricing before processing this return.',
+        ROUND(computed_return_value, 2),
         ROUND(v_remaining_sale_refundable, 2);
     END IF;
 
-    computed_total_refund := LEAST(
-      GREATEST(0, computed_total_refund),
+    computed_return_value := LEAST(
+      GREATEST(0, computed_return_value),
       v_remaining_sale_refundable
     );
+
+    -- Old sales were marked "paid" before amount_paid was consistently stored.
+    -- For those legacy rows, infer the collected cash/card amount from total less
+    -- store credit. For new partial/due rows, trust the persisted collection amount.
+    v_collected_total :=
+      CASE
+        WHEN lower(COALESCE(v_orig_sale.payment_status, '')) = 'paid'
+             AND COALESCE(v_orig_sale.amount_paid, 0) = 0
+          THEN GREATEST(0, COALESCE(v_orig_sale.total, 0) - COALESCE(v_orig_sale.store_credit_used, 0))
+        ELSE GREATEST(0, COALESCE(v_orig_sale.amount_paid, 0))
+      END
+      + GREATEST(0, COALESCE(v_orig_sale.store_credit_used, 0));
+
+    v_remaining_net_sale_value := GREATEST(
+      0,
+      COALESCE(v_orig_sale.total, 0)
+        - v_previous_return_value
+        - computed_return_value
+    );
+
+    computed_total_refund := LEAST(
+      computed_return_value,
+      GREATEST(
+        0,
+        v_collected_total
+          - v_previous_refunds_issued
+          - v_remaining_net_sale_value
+      )
+    );
+  ELSE
+    -- Returns without an original sale are treated as fully settled at the time
+    -- of processing, because no sale receivable exists to offset the return value.
+    computed_total_refund := GREATEST(0, computed_return_value);
   END IF;
 
-  v_return_amount_remaining := GREATEST(0, computed_total_refund);
+  computed_return_subtotal := GREATEST(computed_return_subtotal, computed_return_value);
+
+  v_return_amount_remaining := GREATEST(0, computed_return_value);
 
   -- 6. Generate Public Return Number & Credit Token
   v_effective_return_num := COALESCE(NULLIF(trim(_custom_return_number), ''), NULLIF(trim(_return_number), ''));
@@ -810,6 +895,8 @@ BEGIN
     customer_email,
     refund_method,
     refund_amount,
+    refund_subtotal,
+    refund_total,
     credit_token,
     credit_balance,
     credit_used,
@@ -832,10 +919,12 @@ BEGIN
     COALESCE(trim(_customer_email), v_cust_rec.email, ''),
     v_clean_method,
     computed_total_refund,
-    CASE WHEN v_is_credit_method THEN new_credit_token ELSE NULL END,
+    computed_return_subtotal,
+    computed_return_value,
+    CASE WHEN v_is_credit_method AND computed_total_refund > 0 THEN new_credit_token ELSE NULL END,
     CASE WHEN v_is_credit_method THEN computed_total_refund ELSE 0 END,
     0,
-    CASE WHEN v_is_credit_method THEN 'ACTIVE' ELSE 'COMPLETED' END,
+    CASE WHEN v_is_credit_method AND computed_total_refund > 0 THEN 'ACTIVE' ELSE 'COMPLETED' END,
     'completed',
     COALESCE(NULLIF(trim(_return_reason), ''), 'Customer Return'),
     _notes,
@@ -1163,7 +1252,9 @@ BEGIN
     'return_id', new_return_id,
     'return_number', new_return_number,
     'refund_amount', computed_total_refund,
-    'credit_token', CASE WHEN v_is_credit_method THEN new_credit_token ELSE NULL END,
+    'refund_total', computed_return_value,
+    'refund_subtotal', computed_return_subtotal,
+    'credit_token', CASE WHEN v_is_credit_method AND computed_total_refund > 0 THEN new_credit_token ELSE NULL END,
     'customer_id', v_resolved_cust_id,
     'customer_name', COALESCE(NULLIF(trim(_customer_name), ''), v_cust_rec.name, 'Walk-in Customer'),
     'customer_phone', v_norm_phone,
@@ -1237,7 +1328,7 @@ BEGIN
 
   -- One returned-value total per sale. Separate SUMs prevent refund_amount
   -- being multiplied by the number of return item rows in a join.
-  SELECT COALESCE(SUM(r.refund_amount), 0)
+  SELECT COALESCE(SUM(COALESCE(NULLIF(r.refund_total, 0), r.refund_amount)), 0)
   INTO v_returned_amount
   FROM public.offline_returns r
   WHERE r.original_sale_id = _sale_id
