@@ -348,7 +348,8 @@ export function calculateFinancialMetrics({
       ret.original_sale_number,
     ]
       .filter((key): key is string => Boolean(key))
-      .map((key) => key.trim());
+      .map((key) => key.trim())
+      .filter((key, index, keys) => keys.indexOf(key) === index);
 
   const refundsBySaleKey = new Map<string, number>();
   for (const ret of validReturns) {
@@ -736,6 +737,7 @@ export function calculateFinancialMetrics({
     if (["returned", "fully_returned", "completed"].includes(returnStatus)) return false;
     const balanceDue =
       Number(sale.total || 0) -
+      Number(sale.returned_amount || 0) -
       Number(sale.amount_paid || 0) -
       Number(sale.store_credit_used || 0);
     return balanceDue > 0;
@@ -747,6 +749,7 @@ export function calculateFinancialMetrics({
       Math.max(
         0,
         Number(sale.total || 0) -
+          Number(sale.returned_amount || 0) -
           Number(sale.amount_paid || 0) -
           Number(sale.store_credit_used || 0),
       ),
