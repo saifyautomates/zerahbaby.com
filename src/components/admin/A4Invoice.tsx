@@ -353,16 +353,12 @@ export function buildA4HTML(
       // Net discounted price
       const lineDiscountedPrice = Math.max(0, Math.round((lineBasePrice - lineDiscount) * 100) / 100);
 
-      // GST is strictly INCLUDED within the discounted price (only when HSN is present)
-      // Taxable Value = lineDiscountedPrice / (1 + gstRate / 100)
-      // GST Amount = lineDiscountedPrice - Taxable Value
+      // GST is calculated directly on the discounted price (e.g. 2.5% of ₹800.00 = ₹20.00)
       let lineCgst = 0;
       let lineSgst = 0;
       if (hasItemGst && gstRate > 0) {
-        const taxable = Math.round((lineDiscountedPrice / (1 + gstRate / 100)) * 100) / 100;
-        const totalTax = Math.round((lineDiscountedPrice - taxable) * 100) / 100;
-        lineCgst = Math.round((totalTax / 2) * 100) / 100;
-        lineSgst = Math.round((totalTax - lineCgst) * 100) / 100;
+        lineCgst = Math.round(lineDiscountedPrice * (cgstRate / 100) * 100) / 100;
+        lineSgst = Math.round(lineDiscountedPrice * (sgstRate / 100) * 100) / 100;
       }
 
       // Net final line amount payable after all discounts (inclusive of GST)

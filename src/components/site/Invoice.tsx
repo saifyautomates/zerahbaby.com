@@ -89,20 +89,15 @@ export function buildOrderA4HTML(
       const hasItemHsn = code !== "" && code !== "-" && code !== "—";
       const hasGst = hasItemHsn && (item.gst_rate != null ? Number(item.gst_rate) > 0 : true);
       const gstRate = hasGst ? (item.gst_rate != null && Number(item.gst_rate) > 0 ? Number(item.gst_rate) : 5) : 0;
-      const taxableValue = hasGst
-        ? Math.round((discountedLineAmount / (1 + gstRate / 100)) * 100) / 100
-        : discountedLineAmount;
-      const gstAmount = hasGst
-        ? Math.round((discountedLineAmount - taxableValue) * 100) / 100
-        : 0;
-
+      const cgstRate = gstRate / 2;
+      const sgstRate = gstRate / 2;
       const cgst =
         hasGst && !isInterState
-          ? Math.round((gstAmount / 2) * 100) / 100
+          ? Math.round(discountedLineAmount * (cgstRate / 100) * 100) / 100
           : 0;
       const sgst =
         hasGst && !isInterState
-          ? Math.round((gstAmount - cgst) * 100) / 100
+          ? Math.round(discountedLineAmount * (sgstRate / 100) * 100) / 100
           : 0;
 
       totalOriginalMrp += originalLineAmount;
@@ -612,20 +607,15 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
               const hasItemHsn = code !== "" && code !== "-" && code !== "—";
               const hasGst = hasItemHsn && (item.gst_rate != null ? Number(item.gst_rate) > 0 : true);
               const gstRate = hasGst ? (item.gst_rate != null && Number(item.gst_rate) > 0 ? Number(item.gst_rate) : 5) : 0;
-              const taxableValue = hasGst
-                ? Math.round((discountedLineAmount / (1 + gstRate / 100)) * 100) / 100
-                : discountedLineAmount;
-              const gstAmount = hasGst
-                ? Math.round((discountedLineAmount - taxableValue) * 100) / 100
-                : 0;
-
+              const cgstRate = gstRate / 2;
+              const sgstRate = gstRate / 2;
               const cgst =
                 hasGst && !modalIsInterState
-                  ? Math.round((gstAmount / 2) * 100) / 100
+                  ? Math.round(discountedLineAmount * (cgstRate / 100) * 100) / 100
                   : 0;
               const sgst =
                 hasGst && !modalIsInterState
-                  ? Math.round((gstAmount - cgst) * 100) / 100
+                  ? Math.round(discountedLineAmount * (sgstRate / 100) * 100) / 100
                   : 0;
 
               modalOriginalMrp += originalLineAmount;
