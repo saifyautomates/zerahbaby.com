@@ -374,11 +374,10 @@ BEGIN
 
   IF v_voucher_used > 0 THEN
     INSERT INTO public.store_credit_ledger (
-      customer_id, user_id, customer_phone, customer_name, credit_token, type,
+      customer_id, customer_phone, customer_name, credit_token, type,
       amount, balance_before, balance_after, used_in_sale_id, sale_id,
       notes, created_by, created_at
     ) VALUES (
-      v_cust_id,
       v_cust_id,
       COALESCE(v_clean_phone, ''),
       COALESCE(NULLIF(trim(_customer_name), ''), 'Walk-in Customer'),
