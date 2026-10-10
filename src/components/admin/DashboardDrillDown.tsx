@@ -766,16 +766,7 @@ function SalesChannelDrillDown({
 
           const p = getProduct(item.product_id || "");
           const itemPrice = item.price || 0;
-          const netSaleTotal = Math.max(0, Number(s.total || 0) - totalReturnedAmt);
-          const saleSubtotal = (s.offline_sale_items || []).reduce(
-            (sum, it) => sum + (it.price ? it.price * (it.qty || it.quantity || 1) : 0),
-            0,
-          );
           const rawItemTotal = itemPrice * netQty;
-          const finalItemTotal =
-            saleSubtotal > 0 && netSaleTotal < saleSubtotal
-              ? Math.round((rawItemTotal / saleSubtotal) * netSaleTotal)
-              : rawItemTotal;
 
           items.push({
             sale_id: s.id,
@@ -786,7 +777,7 @@ function SalesChannelDrillDown({
             source: "POS",
             qty: netQty,
             price: itemPrice,
-            total: finalItemTotal,
+            total: rawItemTotal,
           });
         });
       } else {
@@ -805,6 +796,87 @@ function SalesChannelDrillDown({
         });
       }
     });
+
+    // Reconcile each sale's item rows to its authoritative net sale total.
+    // Allocate whole rupees for integer totals, or paise for decimal totals;
+    // largest-remainder allocation ensures that each sale balances exactly.
+    const rowsBySale = new Map<string, number[]>();
+    items.forEach((row, index) => {
+      const indexes = rowsBySale.get(row.sale_id) || [];
+      indexes.push(index);
+      rowsBySale.set(row.sale_id, indexes);
+    });
+
+    const saleById = new Map(validPosSales.map((sale) => [sale.id, sale]));
+
+    for (const [saleId, indexes] of rowsBySale) {
+      const sale = saleById.get(saleId);
+      if (!sale || indexes.length === 0) continue;
+
+      const saleNumber = sale.sale_number || "";
+      const refundFromList = Math.max(
+        refundsBySaleId.get(sale.id) || 0,
+        saleNumber ? refundsBySaleId.get(saleNumber) || 0 : 0,
+      );
+      const totalReturnedAmount = Math.max(
+        Number((sale as any).returned_amount || 0),
+        refundFromList,
+      );
+      const netSaleTotal = Math.max(
+        0,
+        Number(sale.total || 0) - totalReturnedAmount,
+      );
+
+      const precision = Number.isInteger(netSaleTotal) ? 1 : 0.01;
+      const targetUnits = Math.round(netSaleTotal / precision);
+
+      const weightedRows = indexes.map((index) => ({
+        index,
+        weight: Math.max(
+          0,
+          Number(items[index].price || 0) * Number(items[index].qty || 0),
+        ),
+      }));
+      const totalWeight = weightedRows.reduce((sum, row) => sum + row.weight, 0);
+
+      if (totalWeight <= 0) {
+        indexes.forEach((index, position) => {
+          items[index].total =
+            position === indexes.length - 1
+              ? Number(netSaleTotal.toFixed(2))
+              : 0;
+        });
+        continue;
+      }
+
+      const allocations = weightedRows.map(({ index, weight }) => {
+        const exactUnits = (weight / totalWeight) * targetUnits;
+        const baseUnits = Math.floor(exactUnits);
+        return {
+          index,
+          units: baseUnits,
+          remainder: exactUnits - baseUnits,
+        };
+      });
+
+      const remainingUnits =
+        targetUnits - allocations.reduce((sum, allocation) => sum + allocation.units, 0);
+
+      const largestRemainders = [...allocations].sort(
+        (a, b) => b.remainder - a.remainder || a.index - b.index,
+      );
+
+      for (let i = 0; i < remainingUnits; i++) {
+        largestRemainders[i].units += 1;
+      }
+
+      allocations.forEach((allocation) => {
+        items[allocation.index].total = Number(
+          (allocation.units * precision).toFixed(2),
+        );
+      });
+    }
+
     return items;
   }, [validPosSales, refundsBySaleId, returnsBySaleItemId, returnsBySaleAndProduct, getProduct, getProductImage]);
 
