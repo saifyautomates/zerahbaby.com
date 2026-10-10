@@ -2442,9 +2442,15 @@ export function POSTab() {
       return;
     }
 
-    if (payableAfterCredit > 0 && paymentMethod === "due") {
+    const createsOutstandingBalance =
+      paymentMethod === "due" ||
+      (paymentMethod === "cash" &&
+        typeof cashTendered === "number" &&
+        cashTendered + 0.01 < payableAfterCredit);
+
+    if (payableAfterCredit > 0 && createsOutstandingBalance) {
       if (customerMode === "walkin" || !customerName.trim()) {
-        toast.error("Select a named customer before recording an unpaid/due sale.");
+        toast.error("Select a named customer before recording a sale with an outstanding balance.");
         return;
       }
     }
