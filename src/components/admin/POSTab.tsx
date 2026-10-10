@@ -2437,11 +2437,9 @@ export function POSTab() {
         };
       });
 
-    if (payableAfterCredit > 0 && paymentMethod === "cash") {
-      if (typeof cashTendered === "number" && cashTendered < payableAfterCredit) {
-        toast.error(
-          `Cash tendered (₹${cashTendered}) is less than payable amount (₹${payableAfterCredit})`,
-        );
+    if (payableAfterCredit > 0 && paymentMethod === "due") {
+      if (customerMode === "walkin" || !customerName.trim()) {
+        toast.error("Select a named customer before recording an unpaid/due sale.");
         return;
       }
     }
@@ -2464,6 +2462,10 @@ export function POSTab() {
         idempotency_key: idempotencyKey,
         store_credit_used: effectiveCreditUsed,
         credit_token: creditTokenInput.trim() || undefined,
+        cash_tendered:
+          paymentMethod === "cash" && typeof cashTendered === "number"
+            ? cashTendered
+            : undefined,
       });
 
       // Synchronously invalidate and broadcast canonical reporting updates
@@ -4605,13 +4607,14 @@ export function POSTab() {
 
                     {payableAfterCredit > 0 ? (
                       <>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                           {(
                             [
                               ["cash", "Cash", Banknote],
                               ["upi", "UPI / QR", Smartphone],
                               ["card", "Card / POS", CreditCard],
                               ["other", "Other Tender", Wallet],
+                              ["due", "Due / Credit", Wallet],
                             ] as const
                           ).map(([method, label, Icon]) => (
                             <button
@@ -4621,6 +4624,8 @@ export function POSTab() {
                                 setPaymentMethod(method);
                                 if (method === "cash") {
                                   setCashTendered(payableAfterCredit);
+                                } else if (method === "due") {
+                                  setCashTendered("");
                                 }
                               }}
                               className={`flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 text-xs font-bold transition-all cursor-pointer ${
