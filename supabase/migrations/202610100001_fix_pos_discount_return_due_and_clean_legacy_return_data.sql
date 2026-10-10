@@ -745,7 +745,7 @@ BEGIN
     -- Only tolerate small paise differences from per-line unit-price rounding.
     -- A larger mismatch indicates inconsistent old sale snapshots and should stop
     -- instead of quietly issuing a smaller credit than the returned product value.
-    IF computed_total_refund > v_remaining_sale_refundable + 0.05 THEN
+    IF computed_total_refund > v_remaining_sale_refundable + GREATEST(0.05, item_count * 0.01) THEN
       RAISE EXCEPTION
         'Return value ₹% exceeds the remaining refundable sale balance ₹%. Review the original sale pricing before processing this return.',
         ROUND(computed_total_refund, 2),
