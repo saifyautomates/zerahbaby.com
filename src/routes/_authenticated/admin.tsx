@@ -816,7 +816,7 @@ export function AdminPage() {
             className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <div className="relative flex w-72 flex-col bg-card border-r border-border p-4 shadow-2xl animate-in slide-in-from-left duration-200">
+          <div className="relative flex w-72 flex-col bg-card border-r border-border p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-2xl animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <Link
                 to="/"
@@ -888,12 +888,12 @@ export function AdminPage() {
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Top Navbar with explicit z-30 stacking context */}
-        <header className="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-md lg:px-6">
-          <div className="flex items-center gap-3">
+        {/* Top Navbar with explicit z-30 stacking context and safe-area top inset */}
+        <header className="relative z-30 flex h-[calc(4rem+env(safe-area-inset-top,0px))] shrink-0 items-center justify-between border-b border-border bg-card/80 px-3 sm:px-4 backdrop-blur-md lg:px-6 pt-[env(safe-area-inset-top,0px)]">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 mr-2">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted lg:hidden cursor-pointer"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted lg:hidden cursor-pointer"
               aria-label="Open sidebar menu"
             >
               <svg
@@ -912,11 +912,11 @@ export function AdminPage() {
                 <line x1="3" x2="21" y1="18" y2="18" />
               </svg>
             </button>
-            <div>
-              <h1 className="text-xl font-extrabold text-foreground tracking-tight capitalize">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-xl font-extrabold text-foreground tracking-tight capitalize truncate">
                 {NAVIGATION.find((t) => t.key === tab)?.label || "Dashboard"}
               </h1>
-              <p className="text-[11px] text-muted-foreground font-medium">
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium truncate hidden xs:block sm:block">
                 {tab === "dashboard"
                   ? "Overview of your store performance"
                   : tab === "orders"
@@ -929,7 +929,7 @@ export function AdminPage() {
           </div>
 
           {/* Right: Functional Search, Theme Toggle, Notification Bell, User Monogram */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Mobile Search Button */}
             <button
               type="button"
@@ -1000,7 +1000,7 @@ export function AdminPage() {
                 <div
                   role="region"
                   aria-label="Notification Center"
-                  className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-11 z-50 sm:w-[420px] max-w-[440px] overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-150"
+                  className="fixed left-3 right-3 top-[calc(4.5rem+env(safe-area-inset-top,0px))] sm:absolute sm:left-auto sm:right-0 sm:top-11 z-50 sm:w-[420px] max-w-[440px] max-h-[75vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-150"
                 >
                   <div className="border-b border-border bg-muted/20 p-4 space-y-3">
                     <div className="flex items-center justify-between">
@@ -1228,7 +1228,7 @@ export function AdminPage() {
         </header>
 
         {/* Content Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-6 pb-[calc(3rem+env(safe-area-inset-bottom,0px))]">
           <div className="mx-auto max-w-[1600px]">
             <ComponentErrorBoundary
               fallbackTitle="Module Loading Exception"

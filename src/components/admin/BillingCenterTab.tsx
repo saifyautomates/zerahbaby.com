@@ -87,68 +87,68 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
   return (
     <div className="flex flex-col min-h-full bg-card rounded-2xl border border-border shadow-sm">
       {/* Header & Sub-navigation — World-Class Segmented Bar */}
-      <div className="shrink-0 flex items-center justify-between border-b border-border/80 px-4 sm:px-6 py-3 bg-muted/30">
-        <div className="flex items-center gap-1.5 p-1 bg-background rounded-xl border border-border/60 shadow-2xs overflow-x-auto no-scrollbar">
+      <div className="shrink-0 flex items-center justify-between border-b border-border/80 px-2.5 sm:px-6 py-2 sm:py-3 bg-muted/30">
+        <div className="flex items-center gap-1 sm:gap-1.5 p-1 bg-background rounded-xl border border-border/60 shadow-2xs overflow-x-auto no-scrollbar max-w-full">
           <button
             type="button"
             onClick={() => setActiveTab("pos")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer whitespace-nowrap ${
               activeTab === "pos"
                 ? "bg-primary text-primary-foreground shadow-premium-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
-            <Scan className="size-4" /> POS Terminal
+            <Scan className="size-3.5 sm:size-4" /> POS Terminal
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("returns")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer whitespace-nowrap ${
               activeTab === "returns"
                 ? "bg-rose-600 text-white shadow-premium-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
-            <RotateCcw className="size-4" /> Returns
+            <RotateCcw className="size-3.5 sm:size-4" /> Returns
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("labels")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer whitespace-nowrap ${
               activeTab === "labels"
                 ? "bg-primary text-primary-foreground shadow-premium-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
-            <Printer className="size-4" /> 1-Click Labels
+            <Printer className="size-3.5 sm:size-4" /> 1-Click Labels
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("sales")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer whitespace-nowrap ${
               activeTab === "sales"
                 ? "bg-primary text-primary-foreground shadow-premium-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
-            <Receipt className="size-4" /> Sales History
+            <Receipt className="size-3.5 sm:size-4" /> Sales History
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("customers")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer whitespace-nowrap ${
               activeTab === "customers"
                 ? "bg-primary text-primary-foreground shadow-premium-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
-            <Users className="size-4" /> Customers
+            <Users className="size-3.5 sm:size-4" /> Customers
           </button>
         </div>
       </div>
 
       {/* Content Area — Natural smooth scrollable layout */}
-      <div className="flex-1 flex flex-col p-4 sm:p-6 bg-muted/10">
+      <div className="flex-1 flex flex-col p-2.5 sm:p-6 bg-muted/10">
         <div
           key={activeTab}
           className="flex-1 animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col"

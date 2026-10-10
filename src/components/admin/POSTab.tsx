@@ -3203,7 +3203,7 @@ export function POSTab() {
                   }}
                   placeholder="Scan barcode, or search by product name, SKU, variant, color (Enter to add)…"
                   aria-label="POS Universal Scan and Search Bar"
-                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-12 pr-40 py-3.5 text-base sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all placeholder:text-muted-foreground/60 placeholder:font-normal placeholder:text-sm sm:placeholder:text-base"
+                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-9 sm:pl-12 pr-24 sm:pr-40 py-2.5 sm:py-3.5 text-sm sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all placeholder:text-muted-foreground/60 placeholder:font-normal placeholder:text-xs sm:placeholder:text-base"
                   autoFocus
                 />
 
@@ -3647,41 +3647,43 @@ export function POSTab() {
 
         {/* Cart Footer */}
         {cart.length > 0 && step === "cart" && (
-          <div className="border-t border-border bg-card p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] mt-auto shrink-0 z-10 relative">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="border-t border-border bg-card p-3 sm:p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] mt-auto shrink-0 z-10 relative pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center justify-between sm:block">
                 <span className="text-muted-foreground block text-xs">
                   Total Items: {totalItems}
                 </span>
-                <span className="font-bold text-2xl text-primary">{formatPrice(subtotal)}</span>
+                <span className="font-bold text-xl sm:text-2xl text-primary">{formatPrice(subtotal)}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancelCart}
-                  className="rounded-xl border border-red-200 bg-red-50/70 dark:bg-red-950/30 px-4 py-3 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
-                  title="Cancel and clear active POS cart"
-                  data-testid="pos-cancel-cart-btn"
-                >
-                  <Trash2 className="size-3.5" />
-                  <span>Cancel Cart</span>
-                </button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelCart}
+                    className="flex-1 sm:flex-none rounded-xl border border-red-200 bg-red-50/70 dark:bg-red-950/30 px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                    title="Cancel and clear active POS cart"
+                    data-testid="pos-cancel-cart-btn"
+                  >
+                    <Trash2 className="size-3.5" />
+                    <span>Cancel Cart</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleHoldCurrentOrder}
-                  className="rounded-xl border border-amber-300 bg-amber-50/80 dark:bg-amber-950/40 px-4 py-3 text-xs font-bold text-amber-800 dark:text-amber-200 hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-1.5"
-                  title="Put current active cart on hold and serve next customer"
-                >
-                  <PauseCircle className="size-3.5 text-amber-600 dark:text-amber-400" />
-                  <span>Hold Cart</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleHoldCurrentOrder}
+                    className="flex-1 sm:flex-none rounded-xl border border-amber-300 bg-amber-50/80 dark:bg-amber-950/40 px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold text-amber-800 dark:text-amber-200 hover:bg-amber-100 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    title="Put current active cart on hold and serve next customer"
+                  >
+                    <PauseCircle className="size-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Hold Cart</span>
+                  </button>
+                </div>
 
                 <button
                   onClick={() => setStep("checkout")}
-                  className="focus-ring press rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 hover:shadow-premium-md hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="focus-ring press rounded-xl bg-primary px-5 sm:px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 hover:shadow-premium-md hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
                 >
-                  Proceed to Checkout
+                  <span>Proceed to Checkout</span>
                   <ChevronRight className="size-4" />
                 </button>
               </div>
@@ -3691,7 +3693,7 @@ export function POSTab() {
 
         {/* ====== Checkout Step — World-Class 2-Column Cashier Layout ====== */}
         {step === "checkout" && (
-          <div className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6">
+          <div className="flex-1 overflow-y-auto bg-muted/20 p-2.5 sm:p-6 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]">
             <div className="max-w-5xl mx-auto space-y-5">
               {/* Top Navigation & Status Bar */}
               <div className="flex items-center justify-between bg-card p-4 rounded-2xl border border-border shadow-2xs">
