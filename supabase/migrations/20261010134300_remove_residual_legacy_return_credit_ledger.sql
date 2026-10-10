@@ -1,0 +1,5 @@
+-- Mirror of remote migration version 20261010134300.
+-- The same idempotent residual return-credit cleanup is defined in
+-- 202610100002_remove_residual_legacy_return_credit_ledger.sql.
+-- This timestamped version was recorded by the Supabase migration runner
+-- during the safe retry; no additional SQL is required for fresh installs.
