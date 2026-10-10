@@ -99,6 +99,19 @@ const STORE = {
 };
 
 /* ------------------------------------------------------------------ */
+/*  HTML Sanitiser (prevents XSS in invoice content)                   */
+/* ------------------------------------------------------------------ */
+function escapeHtml(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/* ------------------------------------------------------------------ */
 /*  A4 HTML Builder (self-contained, no Tailwind)                      */
 /* ------------------------------------------------------------------ */
 
@@ -428,19 +441,6 @@ ${
 
 </body>
 </html>`;
-}
-
-/* ------------------------------------------------------------------ */
-/*  HTML Sanitiser (prevents XSS in invoice content)                   */
-/* ------------------------------------------------------------------ */
-function escapeHtml(str: string): string {
-  if (!str) return "";
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 /* ------------------------------------------------------------------ */

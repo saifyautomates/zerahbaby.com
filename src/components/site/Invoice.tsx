@@ -45,42 +45,81 @@ export function buildOrderA4HTML(
     : "COD";
 
   const isInterState = Boolean(order.state && order.state.trim().toLowerCase() !== "rajasthan");
-  let totalTaxable = 0;
-  let totalGstAmount = 0;
+  let totalOriginalMrp = 0;
+  let totalProductDiscount = 0;
   let totalCgst = 0;
   let totalSgst = 0;
-  let totalIgst = 0;
+
+  const originalSubtotal = (order.order_items || []).reduce((sum, item) => {
+    const qty = Number(item.qty || 0);
+    const price = Number(item.price || item.price_at_time || 0);
+    const mrp = Number(item.mrp || 0) > 0 ? Number(item.mrp) : price;
+    return sum + mrp * qty;
+  }, 0);
+
+  const sellingSubtotal = (order.order_items || []).reduce((sum, item) => {
+    const qty = Number(item.qty || 0);
+    const price = Number(item.price || item.price_at_time || 0);
+    return sum + price * qty;
+  }, 0);
+
+  const orderLevelDiscount = Math.max(0, Number(order.discount || 0));
+  const saleDiscountRatio =
+    sellingSubtotal > 0
+      ? Math.min(orderLevelDiscount / sellingSubtotal, 1)
+      : 0;
 
   const rowsHtml = (order.order_items || [])
     .map((item, idx) => {
-      const linePrice = Number(item.price || item.price_at_time || 0);
-      const lineTotal = linePrice * item.qty;
-      const variantInfo = [item.color, item.size].filter(Boolean).join(" / ");
-      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
-      const hasGst = item.gst_rate != null && item.gst_rate > 0;
+      const qty = Number(item.qty || 0);
+      const sellingPrice = Number(item.price || item.price_at_time || 0);
+      const originalPrice = Number(item.mrp || 0) > 0 ? Number(item.mrp) : sellingPrice;
+      const originalLineAmount = originalPrice * qty;
+      const sellingLineAmount = sellingPrice * qty;
+      const productDiscount = Math.max(0, originalLineAmount - sellingLineAmount);
+      const additionalSaleDiscount = sellingLineAmount * saleDiscountRatio;
+      const totalLineDiscount = productDiscount + additionalSaleDiscount;
+      const discountedLineAmount = Math.max(0, sellingLineAmount - additionalSaleDiscount);
+      const discountPercent =
+        originalLineAmount > 0
+          ? Math.round((totalLineDiscount / originalLineAmount) * 100)
+          : 0;
+
+      const hasGst = item.gst_rate != null && Number(item.gst_rate) > 0;
+      const gstRate = hasGst ? Number(item.gst_rate) : 0;
       const taxableValue = hasGst
-        ? Math.round((lineTotal / (1 + item.gst_rate! / 100)) * 100) / 100
-        : lineTotal;
-      const gstAmount = hasGst ? Math.round((lineTotal - taxableValue) * 100) / 100 : 0;
-      const gstRateStr = item.gst_rate != null ? `${item.gst_rate}%` : "—";
+        ? Math.round((discountedLineAmount / (1 + gstRate / 100)) * 100) / 100
+        : discountedLineAmount;
+      const gstAmount = hasGst
+        ? Math.round((discountedLineAmount - taxableValue) * 100) / 100
+        : 0;
 
-      let cgst = 0;
-      let sgst = 0;
-      let igst = 0;
-      if (hasGst) {
-        if (isInterState) {
-          igst = gstAmount;
-        } else {
-          cgst = Math.round((gstAmount / 2) * 100) / 100;
-          sgst = Math.round((gstAmount - cgst) * 100) / 100;
-        }
-      }
+      const cgst =
+        hasGst && !isInterState
+          ? Math.round((gstAmount / 2) * 100) / 100
+          : 0;
+      const sgst =
+        hasGst && !isInterState
+          ? Math.round((gstAmount - cgst) * 100) / 100
+          : 0;
 
-      totalTaxable += taxableValue;
-      totalGstAmount += gstAmount;
+      totalOriginalMrp += originalLineAmount;
+      totalProductDiscount += totalLineDiscount;
       totalCgst += cgst;
       totalSgst += sgst;
-      totalIgst += igst;
+
+      const variantInfo = [item.color, item.size].filter(Boolean).join(" / ");
+      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
+
+      const discountHtml =
+        totalLineDiscount > 0
+          ? `<div style="font-weight: 700; color: #15803d;">${discountPercent}%</div>
+             <div style="font-size: 9px; color: #15803d;">− ₹${totalLineDiscount.toLocaleString(
+               "en-IN",
+               { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+             )}</div>`
+          : `<div style="font-weight: 700; color: #15803d;">0%</div>
+             <div style="font-size: 9px; color: #15803d;">− ₹0.00</div>`;
 
       return `<tr>
         <td class="center">${idx + 1}</td>
@@ -90,15 +129,30 @@ export function buildOrderA4HTML(
           ${item.sku_snapshot ? `<div style="font-size: 8.5px; color: #777;">SKU: ${escapeHtml(item.sku_snapshot)}</div>` : ""}
         </td>
         <td class="center font-mono">${hsnDisplay}</td>
-        <td class="center">${item.qty}</td>
-        <td class="right">₹${linePrice.toLocaleString("en-IN")}</td>
-        <td class="right">₹${taxableValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        <td class="center">${gstRateStr}</td>
-        <td class="right">₹${gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        <td class="right bold">₹${lineTotal.toLocaleString("en-IN")}</td>
+        <td class="center">${qty}</td>
+        <td class="right">₹${originalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td class="right">${isInterState ? "—" : `₹${cgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</td>
+        <td class="right">${isInterState ? "—" : `₹${sgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</td>
+        <td class="right">${discountHtml}</td>
+        <td class="right bold">₹${discountedLineAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       </tr>`;
     })
     .join("");
+
+  const finalDiscountPercent =
+    totalOriginalMrp > 0
+      ? Math.round((totalProductDiscount / totalOriginalMrp) * 100)
+      : 0;
+
+  const finalDiscountHtml =
+    totalProductDiscount > 0
+      ? `<div style="font-weight: 700; color: #15803d;">${finalDiscountPercent}%</div>
+         <div style="font-size: 9px; color: #15803d;">− ₹${totalProductDiscount.toLocaleString(
+           "en-IN",
+           { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+         )}</div>`
+      : `<div style="font-weight: 700; color: #15803d;">0%</div>
+         <div style="font-size: 9px; color: #15803d;">− ₹0.00</div>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -194,44 +248,57 @@ export function buildOrderA4HTML(
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 16px;
+    table-layout: fixed;
+    margin-bottom: 12px;
   }
   th {
-    background: #8B2020;
-    color: #fff;
-    font-size: 9.5px;
-    font-weight: 700;
+    background: #f4dfe0;
+    color: #611616;
+    font-size: 8px;
+    line-height: 1.15;
+    font-weight: 800;
     text-transform: uppercase;
-    padding: 7px 8px;
-    border: 1px solid #8B2020;
+    padding: 7px 5px;
+    border: 1px solid #d8b8ba;
   }
   td {
-    padding: 6px 8px;
+    padding: 7px 5px;
     border: 1px solid #e2e8f0;
-    font-size: 10.5px;
+    font-size: 9px;
+    vertical-align: middle;
   }
   .center { text-align: center; }
   .right { text-align: right; }
   .bold { font-weight: 700; }
-  .totals {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
+  .discount-cell { vertical-align: middle; }
+  .discount-percent {
+    font-weight: 800;
+    color: #15803d;
+    line-height: 1.1;
   }
-  .totals-table {
-    width: 260px;
-    border-collapse: collapse;
+  .discount-amount {
+    font-size: 8px;
+    color: #15803d;
+    margin-top: 2px;
+    line-height: 1.1;
   }
-  .totals-table td {
-    padding: 4px 8px;
-    border: none;
-    font-size: 10.5px;
+  .grand-total-row td {
+    background: #f8f1f1;
+    border-top: 2px solid #8B2020;
+    border-bottom: 2px solid #8B2020;
+    font-weight: 900;
   }
-  .grand-total {
-    font-size: 13px;
+  .grand-total-label {
+    text-align: right;
+    font-size: 11px;
     font-weight: 900;
     color: #8B2020;
-    border-top: 2px solid #8B2020 !important;
+    text-transform: uppercase;
+  }
+  .grand-total-final {
+    font-size: 12px;
+    font-weight: 900;
+    color: #8B2020;
   }
   .footer {
     border-top: 1px solid #e2e8f0;
@@ -281,68 +348,28 @@ export function buildOrderA4HTML(
     <thead>
       <tr>
         <th style="width: 25px;">#</th>
-        <th>Item Description</th>
+        <th>PRODUCT</th>
         <th style="width: 55px;" class="center">HSN</th>
-        <th style="width: 40px;" class="center">Qty</th>
-        <th style="width: 65px;" class="right">Rate</th>
-        <th style="width: 75px;" class="right">Taxable</th>
-        <th style="width: 50px;" class="center">GST %</th>
-        <th style="width: 65px;" class="right">GST</th>
-        <th style="width: 75px;" class="right">Total</th>
+        <th style="width: 40px;" class="center">QTY</th>
+        <th style="width: 75px;" class="right">M.R.P<br/>(ORIGINAL)</th>
+        <th style="width: 70px;" class="right">CGST<br/>2.5%</th>
+        <th style="width: 70px;" class="right">SGST<br/>2.5%</th>
+        <th style="width: 85px;" class="right">DISCOUNT</th>
+        <th style="width: 75px;" class="right">TOTAL</th>
       </tr>
     </thead>
     <tbody>
       ${rowsHtml}
+      <tr class="grand-total-row">
+        <td colspan="4" class="grand-total-label">G.TOTAL</td>
+        <td class="right">₹${totalOriginalMrp.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td class="right">${isInterState ? "—" : `₹${totalCgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</td>
+        <td class="right">${isInterState ? "—" : `₹${totalSgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</td>
+        <td class="right">${finalDiscountHtml}</td>
+        <td class="right grand-total-final">₹${Number(order.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      </tr>
     </tbody>
   </table>
-
-  <div class="totals">
-    <div style="width: 260px;">
-      <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 10.5px;">
-        <span>Subtotal</span>
-        <span class="right">₹${Number(order.subtotal || 0).toLocaleString("en-IN")}</span>
-      </div>
-      ${
-        totalGstAmount > 0
-          ? `<div style="display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; color: #475569;">
-          <span>Taxable Value</span>
-          <span class="right">₹${totalTaxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </div>
-        ${
-          isInterState
-            ? `<div style="display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; color: #475569;">
-            <span>IGST</span>
-            <span class="right">₹${totalIgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>`
-            : `<div style="display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; color: #475569;">
-            <span>CGST</span>
-            <span class="right">₹${totalCgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; color: #475569;">
-            <span>SGST</span>
-            <span class="right">₹${totalSgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>`
-        }
-        <div style="display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; font-weight: 700; color: #8B2020;">
-          <span>Total GST</span>
-          <span class="right">₹${totalGstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </div>`
-          : ""
-      }
-      ${Number(order.discount || 0) > 0 ? `<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 10.5px; color: #15803d;">
-        <span>Discount ${order.coupon_code ? `(${escapeHtml(order.coupon_code)})` : ""}</span>
-        <span class="right">-₹${Number(order.discount).toLocaleString("en-IN")}</span>
-      </div>` : ""}
-      <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 10.5px;">
-        <span>Delivery</span>
-        <span class="right">${Number(order.shipping || 0) === 0 ? "FREE" : `₹${Number(order.shipping).toLocaleString("en-IN")}`}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; padding: 6px 0 0; font-size: 13px; font-weight: 900; color: #8B2020; border-top: 2px solid #8B2020;">
-        <span>Total Paid</span>
-        <span class="right">₹${Number(order.total || 0).toLocaleString("en-IN")}</span>
-      </div>
-    </div>
-  </div>
 
   <div class="footer">
     <p>Thank you for shopping with ${escapeHtml(brandName)}!</p>
@@ -480,54 +507,89 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
 
           {/* Line items table */}
           {(() => {
-            const isInterStateModal = Boolean(order.state && order.state.trim().toLowerCase() !== "rajasthan");
-            let mTotalTaxable = 0;
-            let mTotalGst = 0;
-            let mTotalCgst = 0;
-            let mTotalSgst = 0;
-            let mTotalIgst = 0;
+            const modalIsInterState = Boolean(
+              order.state &&
+                order.state.trim().toLowerCase() !== "rajasthan",
+            );
 
-            const renderedRows = order.order_items.map((item) => {
-              const linePrice = Number(item.price || item.price_at_time || 0);
-              const lineTotal = linePrice * item.qty;
-              const hasGst = item.gst_rate != null && item.gst_rate > 0;
+            let modalOriginalMrp = 0;
+            let modalProductDiscount = 0;
+            let modalCgst = 0;
+            let modalSgst = 0;
+
+            const modalSellingSubtotal = order.order_items.reduce(
+              (sum, item) =>
+                sum + Number(item.price || item.price_at_time || 0) * Number(item.qty || 0),
+              0,
+            );
+
+            const modalOrderDiscount = Math.max(0, Number(order.discount || 0));
+            const modalDiscountRatio =
+              modalSellingSubtotal > 0
+                ? Math.min(modalOrderDiscount / modalSellingSubtotal, 1)
+                : 0;
+
+            const renderedRows = order.order_items.map((item, index) => {
+              const qty = Number(item.qty || 0);
+              const sellingPrice = Number(item.price || item.price_at_time || 0);
+              const originalPrice =
+                Number(item.mrp || 0) > 0
+                  ? Number(item.mrp)
+                  : sellingPrice;
+
+              const originalLineAmount = originalPrice * qty;
+              const sellingLineAmount = sellingPrice * qty;
+              const productDiscount = Math.max(0, originalLineAmount - sellingLineAmount);
+              const additionalDiscount = sellingLineAmount * modalDiscountRatio;
+              const lineDiscount = productDiscount + additionalDiscount;
+              const discountedLineAmount = Math.max(0, sellingLineAmount - additionalDiscount);
+
+              const discountPercent =
+                originalLineAmount > 0
+                  ? Math.round((lineDiscount / originalLineAmount) * 100)
+                  : 0;
+
+              const hasGst = item.gst_rate != null && Number(item.gst_rate) > 0;
+              const gstRate = hasGst ? Number(item.gst_rate) : 0;
               const taxableValue = hasGst
-                ? Math.round((lineTotal / (1 + item.gst_rate! / 100)) * 100) / 100
-                : lineTotal;
-              const gstAmount = hasGst ? Math.round((lineTotal - taxableValue) * 100) / 100 : 0;
-              const gstRateStr = item.gst_rate != null ? `${item.gst_rate}%` : "—";
+                ? Math.round((discountedLineAmount / (1 + gstRate / 100)) * 100) / 100
+                : discountedLineAmount;
+              const gstAmount = hasGst
+                ? Math.round((discountedLineAmount - taxableValue) * 100) / 100
+                : 0;
 
-              let cgst = 0;
-              let sgst = 0;
-              let igst = 0;
-              if (hasGst) {
-                if (isInterStateModal) {
-                  igst = gstAmount;
-                } else {
-                  cgst = Math.round((gstAmount / 2) * 100) / 100;
-                  sgst = Math.round((gstAmount - cgst) * 100) / 100;
-                }
-              }
+              const cgst =
+                hasGst && !modalIsInterState
+                  ? Math.round((gstAmount / 2) * 100) / 100
+                  : 0;
+              const sgst =
+                hasGst && !modalIsInterState
+                  ? Math.round((gstAmount - cgst) * 100) / 100
+                  : 0;
 
-              mTotalTaxable += taxableValue;
-              mTotalGst += gstAmount;
-              mTotalCgst += cgst;
-              mTotalSgst += sgst;
-              mTotalIgst += igst;
+              modalOriginalMrp += originalLineAmount;
+              modalProductDiscount += lineDiscount;
+              modalCgst += cgst;
+              modalSgst += sgst;
+
+              const variantInfo = [item.color, item.size]
+                .filter(Boolean)
+                .join(" / ");
 
               return (
-                <tr key={item.id}>
-                  <td className="py-4">
-                    <span className="block font-bold text-slate-900">{item.name}</span>
-                    <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-500">
-                      {item.color && (
-                        <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium">
-                          Color: {item.color}
-                        </span>
-                      )}
-                      {item.size && (
-                        <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium">
-                          Size: {item.size}
+                <tr key={item.id} className="border-b border-slate-200">
+                  <td className="px-2 py-4 text-center text-xs font-bold text-slate-900">
+                    {index + 1}
+                  </td>
+
+                  <td className="px-3 py-4">
+                    <span className="block text-sm font-bold text-slate-900">
+                      {item.name}
+                    </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      {variantInfo && (
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-700">
+                          {variantInfo}
                         </span>
                       )}
                       {item.sku_snapshot && (
@@ -535,111 +597,96 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                           SKU: {item.sku_snapshot}
                         </span>
                       )}
-                      {!item.sku_snapshot && <span>Ref: {item.product_slug}</span>}
                     </div>
                   </td>
-                  <td className="py-4 text-center font-mono text-xs text-slate-700">
+
+                  <td className="px-2 py-4 text-center font-mono text-xs text-slate-700">
                     {item.hsn_code || "—"}
                   </td>
-                  <td className="py-4 text-center font-medium text-slate-700">{item.qty}</td>
-                  <td className="py-4 text-right font-medium text-slate-700">
-                    {formatPrice(linePrice)}
+
+                  <td className="px-2 py-4 text-center font-medium text-slate-700">
+                    {qty}
                   </td>
-                  <td className="py-4 text-right font-medium text-slate-700">
-                    {formatPrice(taxableValue)}
+
+                  <td className="px-2 py-4 text-right font-medium text-slate-700">
+                    {formatPrice(originalPrice)}
                   </td>
-                  <td className="py-4 text-center font-medium text-slate-700">
-                    {gstRateStr}
+
+                  <td className="px-2 py-4 text-right font-medium text-slate-700">
+                    {modalIsInterState ? "—" : formatPrice(cgst)}
                   </td>
-                  <td className="py-4 text-right font-medium text-slate-700">
-                    {formatPrice(gstAmount)}
+
+                  <td className="px-2 py-4 text-right font-medium text-slate-700">
+                    {modalIsInterState ? "—" : formatPrice(sgst)}
                   </td>
-                  <td className="py-4 text-right font-bold text-slate-900">
-                    {formatPrice(lineTotal)}
+
+                  <td className="px-2 py-4 text-right">
+                    <div className="text-xs font-black text-emerald-600">
+                      {discountPercent}%
+                    </div>
+                    <div className="mt-1 text-[10px] font-bold text-emerald-600">
+                      − {formatPrice(lineDiscount)}
+                    </div>
+                  </td>
+
+                  <td className="px-2 py-4 text-right font-bold text-slate-900">
+                    {formatPrice(discountedLineAmount)}
                   </td>
                 </tr>
               );
             });
 
-            return (
-              <>
-                <table className="mt-8 w-full text-left text-sm">
-                  <thead className="border-b-2 border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <tr>
-                      <th className="py-3">Item Description</th>
-                      <th className="py-3 text-center">HSN</th>
-                      <th className="py-3 text-center">Qty</th>
-                      <th className="py-3 text-right">Rate</th>
-                      <th className="py-3 text-right">Taxable</th>
-                      <th className="py-3 text-center">GST %</th>
-                      <th className="py-3 text-right">GST</th>
-                      <th className="py-3 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {renderedRows}
-                  </tbody>
-                </table>
+            const modalDiscountPercent =
+              modalOriginalMrp > 0
+                ? Math.round((modalProductDiscount / modalOriginalMrp) * 100)
+                : 0;
 
-                {/* Totals */}
-                <div className="mt-6 flex justify-end">
-                  <dl className="w-full max-w-sm space-y-3 rounded-2xl bg-slate-50 p-6 text-sm print:bg-transparent print:p-0">
-                    <div className="flex justify-between">
-                      <dt className="font-medium text-slate-600">Subtotal</dt>
-                      <dd className="font-semibold text-slate-900">
-                        {formatPrice(Number(order.subtotal))}
-                      </dd>
-                    </div>
-                    {mTotalGst > 0 && (
-                      <>
-                        <div className="flex justify-between text-xs text-slate-600">
-                          <dt>Taxable Value</dt>
-                          <dd className="font-medium">{formatPrice(mTotalTaxable)}</dd>
-                        </div>
-                        {isInterStateModal ? (
-                          <div className="flex justify-between text-xs text-slate-600">
-                            <dt>IGST</dt>
-                            <dd className="font-medium">{formatPrice(mTotalIgst)}</dd>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex justify-between text-xs text-slate-600">
-                              <dt>CGST</dt>
-                              <dd className="font-medium">{formatPrice(mTotalCgst)}</dd>
-                            </div>
-                            <div className="flex justify-between text-xs text-slate-600">
-                              <dt>SGST</dt>
-                              <dd className="font-medium">{formatPrice(mTotalSgst)}</dd>
-                            </div>
-                          </>
-                        )}
-                        <div className="flex justify-between text-xs font-bold text-primary">
-                          <dt>Total GST</dt>
-                          <dd>{formatPrice(mTotalGst)}</dd>
-                        </div>
-                      </>
-                    )}
-                    {Number(order.discount) > 0 && (
-                      <div className="flex justify-between text-emerald-600">
-                        <dt className="font-medium">Discount</dt>
-                        <dd className="font-semibold">−{formatPrice(Number(order.discount))}</dd>
+            return (
+              <table className="mt-8 w-full text-left text-sm">
+                <thead className="border-b-2 border-slate-200 bg-[#f4dfe0] text-xs font-bold uppercase tracking-wider text-[#611616]">
+                  <tr>
+                    <th className="border border-[#d8b8ba] px-2 py-3 text-center">#</th>
+                    <th className="border border-[#d8b8ba] px-3 py-3">PRODUCT</th>
+                    <th className="border border-[#d8b8ba] px-2 py-3 text-center">HSN</th>
+                    <th className="border border-[#d8b8ba] px-2 py-3 text-center">QTY</th>
+                    <th className="border border-[#d8b8ba] px-2 py-3 text-right">M.R.P<br/>(ORIGINAL)</th>
+                    <th className="border border-[#d8b8ba] px-2 py-3 text-right">CGST<br/>2.5%</th>
+                    <th className="border border-[#d8b8ba] px-2 py-3 text-right">SGST<br/>2.5%</th>
+                    <th className="border border-[#d8b8ba] px-2 py-3 text-right">DISCOUNT</th>
+                    <th className="border border-[#d8b8ba] px-2 py-3 text-right">TOTAL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {renderedRows}
+                  <tr className="bg-[#f8f1f1]">
+                    <td colSpan={4} className="border-b-2 border-t-2 border-primary px-3 py-4 text-right text-sm font-black uppercase tracking-wider text-primary">
+                      G.TOTAL
+                    </td>
+                    <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right font-bold">
+                      {formatPrice(modalOriginalMrp)}
+                    </td>
+                    <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right font-bold">
+                      {modalIsInterState ? "—" : formatPrice(modalCgst)}
+                    </td>
+                    <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right font-bold">
+                      {modalIsInterState ? "—" : formatPrice(modalSgst)}
+                    </td>
+                    <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right">
+                      <div className="text-xs font-black text-emerald-600">
+                        {modalDiscountPercent}%
                       </div>
-                    )}
-                    <div className="flex justify-between">
-                      <dt className="font-medium text-slate-600">Delivery</dt>
-                      <dd className="font-semibold text-slate-900">
-                        {Number(order.shipping) === 0 ? "Free" : formatPrice(Number(order.shipping))}
-                      </dd>
-                    </div>
-              <div className="flex justify-between border-t border-slate-200 pt-4 text-lg font-black text-slate-900">
-                <dt>Total</dt>
-                <dd>{formatPrice(Number(order.total))}</dd>
-              </div>
-            </dl>
-          </div>
-        </>
-      );
-    })()}
+                      <div className="mt-1 text-[10px] font-bold text-emerald-600">
+                        − {formatPrice(modalProductDiscount)}
+                      </div>
+                    </td>
+                    <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right text-base font-black text-primary">
+                      {formatPrice(Number(order.total))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            );
+          })()}
 
           {/* Footer */}
           <div className="mt-12 border-t border-slate-200 pt-6 text-center text-xs text-slate-500">

@@ -724,7 +724,11 @@ export function OfflineAnalyticsTab() {
           product_id: item.product_id || cur.product_id,
           product_slug: item.product_slug || cur.product_slug || undefined,
           qty: cur.qty + item.qty,
-          revenue: cur.revenue + Number(item.subtotal),
+          revenue:
+  cur.revenue +
+  (Number(item.subtotal) > 0
+    ? Number(item.subtotal)
+    : Number(item.price) * Number(item.qty)),
         });
       }
     }

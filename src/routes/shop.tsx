@@ -1,5 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useCallback, useEffect, useDeferredValue } from "react";
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useDeferredValue,
+  useRef,
+} from "react";
 import { createPortal } from "react-dom";
 import { useCategories, useProducts } from "@/lib/store";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
@@ -505,12 +512,53 @@ function ShopPage() {
   }, [list, category, deferredQ, selectedBrands, selectedAgeGroups, deferredMaxPrice, inStockOnly, sort]);
 
   const [displayLimit, setDisplayLimit] = useState(24);
+const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    setDisplayLimit(24);
-  }, [category, age, q, selectedBrands, selectedAgeGroups, maxPrice, inStockOnly, sort]);
+useEffect(() => {
+  setDisplayLimit(24);
+}, [
+  category,
+  age,
+  q,
+  selectedBrands,
+  selectedAgeGroups,
+  maxPrice,
+  inStockOnly,
+  sort,
+]);
 
-  const displayedProducts = useMemo(() => visible.slice(0, displayLimit), [visible, displayLimit]);
+const displayedProducts = useMemo(
+  () => visible.slice(0, displayLimit),
+  [visible, displayLimit],
+);
+
+const hasMoreProducts =
+  displayedProducts.length < visible.length;
+
+useEffect(() => {
+  if (!hasMoreProducts) return;
+
+  const sentinel = loadMoreSentinelRef.current;
+  if (!sentinel) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (!entries[0]?.isIntersecting) return;
+
+      setDisplayLimit((prev) =>
+        Math.min(prev + 24, visible.length),
+      );
+    },
+    {
+      rootMargin: "500px 0px",
+      threshold: 0,
+    },
+  );
+
+  observer.observe(sentinel);
+
+  return () => observer.disconnect();
+}, [hasMoreProducts, visible.length]);
 
   const activeCategory = (categories ?? []).find((c) => c.slug === category);
   const hasAnyFilter = hasActiveFilters || !!category || !!q;
@@ -681,20 +729,13 @@ function ShopPage() {
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
-              {visible.length > displayLimit && (
-                <div className="mt-8 flex flex-col items-center justify-center gap-2">
-                  <p className="text-xs text-muted-foreground font-medium">
-                    Showing {displayLimit} of {visible.length} products
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setDisplayLimit((prev) => prev + 24)}
-                    className="rounded-full border border-border bg-card hover:bg-muted px-6 py-2.5 text-xs sm:text-sm font-semibold text-foreground transition shadow-2xs cursor-pointer"
-                  >
-                    Load More Products
-                  </button>
-                </div>
-              )}
+              {hasMoreProducts && (
+  <div
+    ref={loadMoreSentinelRef}
+    className="h-4"
+    aria-hidden="true"
+  />
+)}
             </>
           )}
         </div>
