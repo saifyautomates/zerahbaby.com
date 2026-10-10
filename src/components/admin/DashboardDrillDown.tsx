@@ -133,6 +133,8 @@ export interface DrillDownReturn {
   sale_id?: string | null;
   created_at: string;
   refund_amount?: number;
+  refund_total?: number;
+  refund_subtotal?: number;
   status?: string;
   refund_status?: string;
   refund_method?: string;
@@ -549,7 +551,7 @@ function SalesChannelDrillDown({
       ].filter(Boolean);
       for (const sKey of saleKeys) {
         const prev = map.get(sKey) || 0;
-        map.set(sKey, prev + Number(ret.refund_amount || 0));
+        map.set(sKey, prev + Number(ret.refund_total || ret.refund_amount || 0));
       }
     }
     return map;
@@ -905,7 +907,7 @@ function SalesChannelDrillDown({
           const itemQty = item.qty || 1;
           const refundPrice = item.refund_price || 0;
           const refundSubtotal =
-            item.refund_subtotal || item.subtotal || refundPrice * itemQty || r.refund_amount || 0;
+            item.refund_subtotal || item.subtotal || refundPrice * itemQty || r.refund_total || r.refund_amount || 0;
           items.push({
             sale_id: r.id,
             date: r.created_at,
@@ -928,8 +930,8 @@ function SalesChannelDrillDown({
           image: null,
           source: "Return",
           qty: 1,
-          price: Number(r.refund_amount || 0),
-          total: -Number(r.refund_amount || 0),
+          price: Number(r.refund_total || r.refund_amount || 0),
+          total: -Number(r.refund_total || r.refund_amount || 0),
           return_number: r.return_number,
         });
       }
@@ -1544,7 +1546,7 @@ export function DashboardDrillDown({
         ].filter(Boolean) as string[];
 
         for (const sKey of saleKeys) {
-          profitRefundsBySale.set(sKey, (profitRefundsBySale.get(sKey) || 0) + Number(ret.refund_amount || 0));
+          profitRefundsBySale.set(sKey, (profitRefundsBySale.get(sKey) || 0) + Number(ret.refund_total || ret.refund_amount || 0));
         }
 
         for (const item of ret.offline_return_items ?? []) {
