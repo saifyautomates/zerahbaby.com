@@ -642,7 +642,7 @@ BEGIN
 
   -- 2. Idempotency Check
   IF _idempotency_key IS NOT NULL AND trim(_idempotency_key) != '' THEN
-    SELECT id, return_number, refund_amount, credit_token, customer_name, customer_id, original_sale_id, original_sale_number, expires_at
+    SELECT id, return_number, refund_amount, refund_subtotal, refund_total, credit_token, customer_name, customer_id, original_sale_id, original_sale_number, expires_at
     INTO v_existing_return
     FROM public.offline_returns
     WHERE idempotency_key = trim(_idempotency_key)
@@ -657,6 +657,8 @@ BEGIN
         'return_id', v_existing_return.id,
         'return_number', v_existing_return.return_number,
         'refund_amount', v_existing_return.refund_amount,
+        'refund_subtotal', v_existing_return.refund_subtotal,
+        'refund_total', v_existing_return.refund_total,
         'credit_token', v_existing_return.credit_token,
         'customer_name', v_existing_return.customer_name,
         'customer_id', v_existing_return.customer_id,
@@ -1598,7 +1600,11 @@ WITH retired_voucher_rows AS (
   SELECT
     v.customer_id,
     UPPER(TRIM(v.token)) AS token,
-    GREATEST(COALESCE(v.current_balance, 0), 0) AS balance
+    CASE
+      WHEN v.is_active = true AND (v.expires_at IS NULL OR v.expires_at > now())
+        THEN GREATEST(COALESCE(v.current_balance, 0), 0)
+      ELSE 0
+    END AS balance
   FROM admin_cleanup_archive.store_credit_vouchers_before_pos_return_reset_20261010 v
   WHERE NULLIF(TRIM(v.token), '') IS NOT NULL
     AND UPPER(TRIM(v.token)) IN (
@@ -1609,7 +1615,11 @@ WITH retired_voucher_rows AS (
   SELECT
     v.customer_id,
     UPPER(TRIM(v.token)) AS token,
-    GREATEST(COALESCE(v.remaining_balance, 0), 0) AS balance
+    CASE
+      WHEN v.status = 'active' AND (v.expires_at IS NULL OR v.expires_at > now())
+        THEN GREATEST(COALESCE(v.remaining_balance, 0), 0)
+      ELSE 0
+    END AS balance
   FROM admin_cleanup_archive.pos_exchange_vouchers_before_pos_return_reset_20261010 v
   WHERE NULLIF(TRIM(v.token), '') IS NOT NULL
     AND UPPER(TRIM(v.token)) IN (
