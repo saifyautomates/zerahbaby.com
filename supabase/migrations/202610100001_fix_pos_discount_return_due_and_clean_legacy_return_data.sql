@@ -879,7 +879,19 @@ BEGIN
     new_return_number := 'RET-' || to_char(now(), 'YYMMDD') || '-' || lpad(floor(random() * 90000 + 10000)::text, 5, '0');
   END IF;
 
-  IF v_effective_credit_tok IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.offline_returns WHERE upper(credit_token) = upper(v_effective_credit_tok)) THEN
+  IF v_effective_credit_tok IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM public.offline_returns
+       WHERE upper(credit_token) = upper(v_effective_credit_tok)
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM public.store_credit_vouchers
+       WHERE upper(token) = upper(v_effective_credit_tok)
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM public.pos_exchange_vouchers
+       WHERE upper(token) = upper(v_effective_credit_tok)
+     ) THEN
     new_credit_token := upper(v_effective_credit_tok);
   ELSE
     new_credit_token := public.generate_store_credit_token();
