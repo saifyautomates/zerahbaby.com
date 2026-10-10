@@ -180,7 +180,7 @@ export function buildA4HTML(
     sale.discount_type === "percentage" || (sale.discount_type as string) === "percent"
       ? Number(sale.discount_value || 0)
       : sale.subtotal > 0 && sale.discount > 0
-        ? Math.round((sale.discount / (sale.subtotal + sale.discount)) * 100)
+        ? Math.round((sale.discount / sale.subtotal) * 100)
         : 0;
 
   let totalMrp = 0;
@@ -201,20 +201,22 @@ export function buildA4HTML(
         item.mrp && item.mrp > item.price ? item.mrp : item.mrp || item.price;
       const lineMrp = Math.round(unitMrp * qty * 100) / 100;
 
-      // Line discount calculation
-      let itemDiscountAmount = 0;
-      let itemDiscountPct = 0;
+      // Combined product-level and sale-level discount
+      const productDiscount =
+        item.mrp && item.mrp > item.price
+          ? Math.round((item.mrp - item.price) * qty * 100) / 100
+          : 0;
 
-      if (item.mrp && item.mrp > item.price) {
-        itemDiscountAmount = Math.round((item.mrp - item.price) * qty * 100) / 100;
-        itemDiscountPct = Math.round(((item.mrp - item.price) / item.mrp) * 100);
-      } else if (overallDiscountPct > 0) {
-        itemDiscountPct = overallDiscountPct;
-        itemDiscountAmount = Math.round((lineMrp * (itemDiscountPct / 100)) * 100) / 100;
+      let saleDiscount = 0;
+      if (overallDiscountPct > 0) {
+        saleDiscount = Math.round((lineMrp * (overallDiscountPct / 100)) * 100) / 100;
       } else if (sale.discount > 0 && items.length === 1) {
-        itemDiscountAmount = Math.round(sale.discount * 100) / 100;
-        itemDiscountPct = lineMrp > 0 ? Math.round((itemDiscountAmount / lineMrp) * 100) : 0;
+        saleDiscount = Math.round(sale.discount * 100) / 100;
       }
+
+      const itemDiscountAmount = productDiscount + saleDiscount;
+      const itemDiscountPct =
+        lineMrp > 0 ? Math.round((itemDiscountAmount / lineMrp) * 100) : 0;
 
       // GST computed from line taxable / rate
       const lineCgst = Math.round((lineMrp * (cgstRate / 100)) * 100) / 100;
@@ -239,7 +241,7 @@ export function buildA4HTML(
       const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "-";
 
       return `
-    <tr style="vertical-align: top;">
+    <tr style="vertical-align: top; page-break-inside: avoid;">
       <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
       <td style="padding: 10px 6px; text-align: left;">
         <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(item.name)}</div>
@@ -257,12 +259,13 @@ export function buildA4HTML(
     .join("");
 
   // Determine overall discount cell for G.TOTAL row
+  const displayTotalDiscount = sale.discount > 0 ? sale.discount : totalDiscount;
   let totalDiscountDisplay = "—";
-  if (totalDiscount > 0) {
-    const gDiscountPct = totalMrp > 0 ? Math.round((totalDiscount / totalMrp) * 100) : 0;
+  if (displayTotalDiscount > 0) {
+    const gDiscountPct = totalMrp > 0 ? Math.round((displayTotalDiscount / totalMrp) * 100) : 0;
     totalDiscountDisplay = `
       <div style="font-weight: 800; font-size: 11px;">${overallDiscountPct > 0 ? `${overallDiscountPct}%` : `${gDiscountPct}%`}</div>
-      <div style="font-weight: 800; font-size: 11px; white-space: nowrap;">- ₹${totalDiscount.toFixed(2)}</div>
+      <div style="font-weight: 800; font-size: 11px; white-space: nowrap;">- ₹${displayTotalDiscount.toFixed(2)}</div>
     `;
   }
 
@@ -509,7 +512,10 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
         return;
       }
 
+      let printed = false;
       const triggerPrint = () => {
+        if (printed) return;
+        printed = true;
         try {
           iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
@@ -527,18 +533,34 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
             } catch {
               /* already removed */
             }
-          }, 2000);
+          }, 3000);
         }
       };
 
-      iframe.onload = triggerPrint;
+      const waitAndPrint = () => {
+        const imgs = Array.from(doc.images || []);
+        if (imgs.length === 0 || imgs.every((img) => img.complete)) {
+          setTimeout(triggerPrint, 120);
+        } else {
+          let loaded = 0;
+          imgs.forEach((img) => {
+            img.onload = img.onerror = () => {
+              loaded++;
+              if (loaded >= imgs.length) setTimeout(triggerPrint, 60);
+            };
+          });
+          setTimeout(triggerPrint, 600);
+        }
+      };
+
+      iframe.onload = waitAndPrint;
 
       doc.open();
       doc.write(buildA4HTML(sale, items, storeSettings));
       doc.close();
 
       if (doc.readyState === "complete") {
-        setTimeout(triggerPrint, 60);
+        waitAndPrint();
       }
     } catch (err) {
       setPrintStatus("failed");
