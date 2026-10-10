@@ -638,7 +638,8 @@ export function calculateFinancialMetrics({
   const netSales = netRevenue;
   const returnsExchangeCredit = totalReturns;
   const returnedItemsCount = totalUnitsReturned;
-  const storeCreditIssued = offlineReturns;
+  // Only actual recorded return entries count as issued store credit; inferred full-sale adjustments affect revenue only.
+  const storeCreditIssued = recordedOfflineReturns;
   const storeCreditUsedInSales = validPos.reduce(
     (sum, s) => sum + Number(s.store_credit_used || 0),
     0,
