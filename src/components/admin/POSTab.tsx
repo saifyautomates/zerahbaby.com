@@ -4806,7 +4806,7 @@ export function POSTab() {
                                     <p className="text-muted-foreground text-xs font-medium">
                                       <span className="font-bold text-foreground">HSN:</span> {hsn || "—"}{" "}
                                       <span className="mx-1 text-border">|</span>{" "}
-                                      <span className="font-bold text-foreground">GST:</span> {gstRate}%
+                                      <span className="font-bold text-foreground">GST:</span> {gstRate > 0 ? `${gstRate}%` : "0%"}
                                     </p>
                                     <button
                                       type="button"
@@ -4826,7 +4826,7 @@ export function POSTab() {
                                     </button>
                                   </div>
                                   <p className="text-muted-foreground text-xs mt-0.5">
-                                    {qty} × {formatPrice(rateExclTax)} (excl. tax)
+                                    {qty} × {formatPrice(rateExclTax)}{gstRate > 0 ? " (excl. tax)" : ""}
                                     {item.isCustom && (
                                       <span className="ml-1 text-amber-600 font-bold">(Custom)</span>
                                     )}
@@ -4991,7 +4991,7 @@ export function POSTab() {
                     {/* Breakdown */}
                     <div className="space-y-2.5 text-sm pt-3 border-t border-border/60">
                       <div className="flex justify-between text-muted-foreground">
-                        <span>Items Subtotal (Excl. GST)</span>
+                        <span>{gstCalculations.totalGstAmount > 0 ? "Items Subtotal (Excl. GST)" : "Items Subtotal"}</span>
                         <span className="font-bold text-foreground">
                           {formatPrice(gstCalculations.subtotalExclGst)}
                         </span>
@@ -5002,17 +5002,19 @@ export function POSTab() {
                           − {formatPrice(discountAmount)}
                         </span>
                       </div>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Taxable Amount</span>
-                        <span className="font-bold text-foreground">
-                          {formatPrice(gstCalculations.taxableAmount)}
-                        </span>
-                      </div>
+                      {gstCalculations.totalGstAmount > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Taxable Amount</span>
+                          <span className="font-bold text-foreground">
+                            {formatPrice(gstCalculations.taxableAmount)}
+                          </span>
+                        </div>
+                      )}
 
-                      {/* GST Breakdown Box */}
-                      <div className="rounded-xl bg-[#EFF6FF] dark:bg-blue-950/20 border border-[#BFDBFE] dark:border-blue-900/40 p-3 space-y-1.5 text-xs">
-                        {gstCalculations.isInterState ? (
-                          gstCalculations.distinctRates.length > 0 ? (
+                      {/* GST Breakdown Box (Only shown when GST is present) */}
+                      {gstCalculations.totalGstAmount > 0 && (
+                        <div className="rounded-xl bg-[#EFF6FF] dark:bg-blue-950/20 border border-[#BFDBFE] dark:border-blue-900/40 p-3 space-y-1.5 text-xs">
+                          {gstCalculations.isInterState ? (
                             gstCalculations.distinctRates.map((r) => (
                               <div
                                 key={r.gstRate}
@@ -5023,52 +5025,38 @@ export function POSTab() {
                               </div>
                             ))
                           ) : (
-                            <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
-                              <span>IGST @ 0%</span>
-                              <span>₹0.00</span>
-                            </div>
-                          )
-                        ) : gstCalculations.distinctRates.length > 0 ? (
-                          gstCalculations.distinctRates.map((r) => {
-                            const halfRate = r.gstRate / 2;
-                            const halfAmt = Math.round((r.gstAmount / 2) * 100) / 100;
-                            const otherHalf = Math.round((r.gstAmount - halfAmt) * 100) / 100;
-                            return (
-                              <Fragment key={r.gstRate}>
-                                <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
-                                  <span>CGST @ {halfRate}%</span>
-                                  <span>{formatPrice(halfAmt)}</span>
-                                </div>
-                                <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
-                                  <span>SGST @ {halfRate}%</span>
-                                  <span>{formatPrice(otherHalf)}</span>
-                                </div>
-                              </Fragment>
-                            );
-                          })
-                        ) : (
-                          <>
-                            <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
-                              <span>CGST @ 2.5%</span>
-                              <span>₹0.00</span>
-                            </div>
-                            <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
-                              <span>SGST @ 2.5%</span>
-                              <span>₹0.00</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                            gstCalculations.distinctRates.map((r) => {
+                              const halfRate = r.gstRate / 2;
+                              const halfAmt = Math.round((r.gstAmount / 2) * 100) / 100;
+                              const otherHalf = Math.round((r.gstAmount - halfAmt) * 100) / 100;
+                              return (
+                                <Fragment key={r.gstRate}>
+                                  <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
+                                    <span>CGST @ {halfRate}%</span>
+                                    <span>{formatPrice(halfAmt)}</span>
+                                  </div>
+                                  <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
+                                    <span>SGST @ {halfRate}%</span>
+                                    <span>{formatPrice(otherHalf)}</span>
+                                  </div>
+                                </Fragment>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
 
-                      <div className="flex justify-between text-muted-foreground">
-                        <span className="font-semibold text-foreground">Total GST Amount</span>
-                        <span className="font-bold text-foreground">
-                          {formatPrice(gstCalculations.totalGstAmount)}
-                        </span>
-                      </div>
+                      {gstCalculations.totalGstAmount > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span className="font-semibold text-foreground">Total GST Amount</span>
+                          <span className="font-bold text-foreground">
+                            {formatPrice(gstCalculations.totalGstAmount)}
+                          </span>
+                        </div>
+                      )}
 
                       <div className="flex justify-between font-bold text-foreground pt-1 border-t border-border/40">
-                        <span>Sale Total (Incl. GST)</span>
+                        <span>{gstCalculations.totalGstAmount > 0 ? "Sale Total (Incl. GST)" : "Sale Total"}</span>
                         <span>{formatPrice(gstCalculations.saleTotalInclGst)}</span>
                       </div>
 

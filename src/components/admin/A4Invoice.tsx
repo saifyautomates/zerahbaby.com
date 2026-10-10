@@ -282,16 +282,32 @@ export function buildA4HTML(
         ? Math.round((sale.discount / sale.subtotal) * 100)
         : 0;
 
-  let totalMrp = 0;
+    let totalMrp = 0;
   let totalCgst = 0;
   let totalSgst = 0;
   let totalDiscount = 0;
   let grandTotal = 0;
 
+  const distinctPositiveGstRates = Array.from(
+    new Set(
+      items
+        .map((i) => (i.gst_rate != null ? Number(i.gst_rate) : 0))
+        .filter((r) => r > 0),
+    ),
+  );
+  const gstHeaderSub =
+    distinctPositiveGstRates.length === 1
+      ? `<br/>${distinctPositiveGstRates[0] / 2}%`
+      : "";
+
   const itemRows = items
     .map((item, idx) => {
       const qty = Math.max(1, item.qty || 1);
-      const gstRate = item.gst_rate != null ? Number(item.gst_rate) : 5; // default 5% (2.5% CGST + 2.5% SGST)
+      const hasItemGst =
+        item.gst_rate != null &&
+        !isNaN(Number(item.gst_rate)) &&
+        Number(item.gst_rate) > 0;
+      const gstRate = hasItemGst ? Number(item.gst_rate) : 0;
       const cgstRate = gstRate / 2;
       const sgstRate = gstRate / 2;
 
@@ -317,9 +333,13 @@ export function buildA4HTML(
       const itemDiscountPct =
         lineMrp > 0 ? Math.round((itemDiscountAmount / lineMrp) * 100) : 0;
 
-      // GST computed from line taxable / rate
-      const lineCgst = Math.round((lineMrp * (cgstRate / 100)) * 100) / 100;
-      const lineSgst = Math.round((lineMrp * (sgstRate / 100)) * 100) / 100;
+      // GST computed from line taxable / rate only when GST is explicitly set
+      const lineCgst = hasItemGst
+        ? Math.round((lineMrp * (cgstRate / 100)) * 100) / 100
+        : 0;
+      const lineSgst = hasItemGst
+        ? Math.round((lineMrp * (sgstRate / 100)) * 100) / 100
+        : 0;
       const lineTotal = Math.round((lineMrp - itemDiscountAmount + lineCgst + lineSgst) * 100) / 100;
 
       totalMrp += lineMrp;
@@ -336,6 +356,9 @@ export function buildA4HTML(
         `;
       }
 
+      const cgstDisplay = lineCgst > 0 ? `₹${lineCgst.toFixed(2)}` : "—";
+      const sgstDisplay = lineSgst > 0 ? `₹${lineSgst.toFixed(2)}` : "—";
+
       const skuText = item.sku ? `SKU: ${escapeHtml(item.sku)}` : "";
       const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "-";
 
@@ -349,8 +372,8 @@ export function buildA4HTML(
       <td style="padding: 10px 6px; text-align: center; font-family: monospace; font-size: 11.5px; color: #000;">${hsnDisplay}</td>
       <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${qty}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineMrp.toFixed(2)}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineCgst.toFixed(2)}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineSgst.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${cgstDisplay}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${sgstDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${lineTotal.toFixed(2)}</td>
     </tr>`;
@@ -480,8 +503,8 @@ ${
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 50px;">HSN</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 40px;">QTY</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 90px; line-height: 1.2;">M.R.P.<br/>(ORIGINAL)</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">CGST<br/>2.5%</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">SGST<br/>2.5%</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">CGST${gstHeaderSub}</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">SGST${gstHeaderSub}</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 80px;">DISCOUNT</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px;">TOTAL</th>
     </tr>
@@ -496,10 +519,10 @@ ${
         ₹${totalMrp.toFixed(2)}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ₹${totalCgst.toFixed(2)}
+        ${totalCgst > 0 ? `₹${totalCgst.toFixed(2)}` : "—"}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ₹${totalSgst.toFixed(2)}
+        ${totalSgst > 0 ? `₹${totalSgst.toFixed(2)}` : "—"}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
         ${totalDiscountDisplay}
