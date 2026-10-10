@@ -912,7 +912,6 @@ export function OfflineAnalyticsTab() {
               </div>
             )}
           </div>
-
         </div>
       </div>
 

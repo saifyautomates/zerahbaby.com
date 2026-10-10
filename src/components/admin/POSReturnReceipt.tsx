@@ -17,7 +17,7 @@ import { formatPrice } from "@/lib/store";
 
 export type ReturnReceiptData = {
   return_number: string;
-  credit_token?: string;
+  credit_token?: string | null;
   customer_name: string;
   customer_phone?: string;
   customer_id?: string | null;

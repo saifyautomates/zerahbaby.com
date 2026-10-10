@@ -697,7 +697,7 @@ export function POSReturnsTab() {
 
       const receiptData: ReturnReceiptData = {
         return_number: result.return_number,
-        credit_token: result.credit_token,
+        credit_token: result.credit_token || undefined,
         customer_name: resolvedCustomerName,
         customer_phone: customerPhone.trim(),
         customer_id: customerId,
