@@ -1296,14 +1296,7 @@ CREATE TABLE admin_cleanup_archive.offline_sales_return_markers_before_pos_retur
        '1ee50e2f-a86a-4ddf-bef5-51ce1fd0d25a'
      );
 CREATE TABLE admin_cleanup_archive.offline_sale_items_return_markers_before_pos_return_reset_20261010 AS
-  SELECT * FROM public.offline_sale_items
-  WHERE COALESCE(quantity_returned, 0) <> 0
-     OR COALESCE(returned_quantity, 0) <> 0
-     OR lower(COALESCE(return_status, 'none')) NOT IN ('none', '')
-     OR sale_id IN (
-       'c5b9f5c5-7c39-40f8-af33-8630fda0f971',
-       '1ee50e2f-a86a-4ddf-bef5-51ce1fd0d25a'
-     );
+  SELECT * FROM public.offline_sale_items;
 CREATE TABLE admin_cleanup_archive.offline_sale_items_paid_prices_before_pos_return_reset_20261010 AS
   SELECT osi.*
   FROM public.offline_sale_items osi
@@ -1434,10 +1427,7 @@ SET quantity_returned = 0,
     quantity_returnable = GREATEST(0, COALESCE(NULLIF(quantity_sold, 0), NULLIF(qty, 0), NULLIF(quantity, 0), 1)),
     returnable_qty = GREATEST(0, COALESCE(NULLIF(quantity_sold, 0), NULLIF(qty, 0), NULLIF(quantity, 0), 1)),
     return_status = 'NONE',
-    updated_at = now()
-WHERE COALESCE(quantity_returned, 0) <> 0
-   OR COALESCE(returned_quantity, 0) <> 0
-   OR lower(COALESCE(return_status, 'none')) NOT IN ('none', '');
+    updated_at = now();
 
 -- Delete only the two confirmed synthetic "card" test sales (₹400 and ₹450).
 DELETE FROM public.inventory_transactions
