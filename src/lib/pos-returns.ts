@@ -109,7 +109,7 @@ export type ReturnResult = {
   refund_total?: number;
   refund_subtotal?: number;
   refund_method?: string;
-  credit_token: string;
+  credit_token?: string | null;
   customer_name: string;
   customer_phone?: string;
   customer_id?: string | null;
