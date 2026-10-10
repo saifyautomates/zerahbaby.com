@@ -128,7 +128,11 @@ export interface ReportReturn {
   status?: string;
   refund_status?: string;
   refund_amount?: number;
+  refund_subtotal?: number | null;
+  refund_total?: number | null;
   refund_method?: string;
+  credit_used?: number | null;
+  credit_balance?: number | null;
   customer_name?: string;
   customer_phone?: string;
   offline_return_items?: ReportReturnItem[];
@@ -353,7 +357,7 @@ export function calculateFinancialMetrics({
 
   const refundsBySaleKey = new Map<string, number>();
   for (const ret of validReturns) {
-    const amount = Math.max(0, Number(ret.refund_amount || 0));
+    const amount = Math.max(0, Number(ret.refund_total || ret.refund_amount || 0));
     for (const key of getReturnSaleKeys(ret)) {
       refundsBySaleKey.set(key, (refundsBySaleKey.get(key) || 0) + amount);
     }
@@ -463,7 +467,7 @@ export function calculateFinancialMetrics({
     );
     return linkedToCurrentPeriodSale
       ? sum
-      : sum + Math.max(0, Number(ret.refund_amount || 0));
+      : sum + Math.max(0, Number(ret.refund_total || ret.refund_amount || 0));
   }, 0);
 
   const offlineReturns =
@@ -772,8 +776,15 @@ export function calculateFinancialMetrics({
   const netSales = netRevenue;
   const returnsExchangeCredit = totalReturns;
   const returnedItemsCount = totalUnitsReturned;
-  // Only actual recorded return entries count as issued store credit; inferred full-sale adjustments affect revenue only.
-  const storeCreditIssued = recordedOfflineReturns;
+  // Only the amount actually issued through a credit/voucher method counts as new store credit.
+  // refund_total is the value of merchandise returned; refund_amount is the payout/credit issued.
+  const storeCreditMethods = new Set(["exchange_credit", "store_credit", "credit", "voucher", "exchange"]);
+  const storeCreditIssued = validReturns.reduce((sum, ret) => {
+    const method = String(ret.refund_method || "").toLowerCase().trim();
+    return storeCreditMethods.has(method)
+      ? sum + Math.max(0, Number(ret.refund_amount || 0))
+      : sum;
+  }, 0);
   const storeCreditUsedInSales = validPos.reduce(
     (sum, s) => sum + Number(s.store_credit_used || 0),
     0,
