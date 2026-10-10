@@ -619,34 +619,23 @@ export function OfflineAnalyticsTab() {
     [hourlyFootfall],
   );
 
-  // Returns calculations
-  const totalReturnsAmount = useMemo(
-    () => returnsList.reduce((sum, r) => sum + Number(r.refund_amount || 0), 0),
-    [returnsList],
-  );
-  const todayReturnsAmount = useMemo(
-    () =>
-      returnsList
-        .filter((r) => utcToISTDate(r.created_at) === today)
-        .reduce((sum, r) => sum + Number(r.refund_amount || 0), 0),
-    [returnsList, today],
-  );
-
-  // Canonical Period POS Sales (synchronized with active reporting date range)
+  // Returns in the ledger are useful for audit/history, but net sales must be reconciled
+  // against each sale's authoritative return status and returned_amount. Never subtract
+  // the same return once from the sale and again from the return list.
   const periodActiveSales = useMemo(
     () => activeSales.filter((s) => inCurrentPeriod(s.created_at)),
     [activeSales, inCurrentPeriod],
   );
 
-  const periodReturnsAmount = useMemo(
-    () =>
-      returnsList
-        .filter((r) => inCurrentPeriod(r.created_at))
-        .reduce((sum, r) => sum + Number(r.refund_amount || 0), 0),
-    [returnsList, inCurrentPeriod],
-  );
+  const getSaleNetRevenue = (sale: Sale | CanonicalPOSSale) => {
+    const status = String(sale.return_status || "").toLowerCase().trim();
+    if (status === "returned" || status === "fully_returned" || status === "completed") {
+      return 0;
+    }
+    return Math.max(0, Number(sale.total || 0) - Math.max(0, Number(sale.returned_amount || 0)));
+  };
 
-  // All completed sales in period before returns (for gross baseline accounting)
+  // All completed sales in period before returns (gross baseline).
   const periodAllCompletedSales = useMemo(
     () =>
       (sales ?? []).filter(
@@ -661,9 +650,22 @@ export function OfflineAnalyticsTab() {
     [sales, inCurrentPeriod],
   );
 
-  const grossSalesRevenue = periodAllCompletedSales.reduce((sum, sale) => sum + Number(sale.total), 0);
-  const totalSalesRevenue = Math.max(0, grossSalesRevenue - periodReturnsAmount);
-  const grossRevenue = grossSalesRevenue;
+  const grossSalesRevenue = periodAllCompletedSales.reduce(
+    (sum, sale) => sum + Number(sale.total || 0),
+    0,
+  );
+  const totalSalesRevenue = periodActiveSales.reduce(
+    (sum, sale) => sum + getSaleNetRevenue(sale),
+    0,
+  );
+  const recordedPeriodReturnsAmount = returnsList
+    .filter((ret) => inCurrentPeriod(ret.created_at))
+    .reduce((sum, ret) => sum + Number(ret.refund_amount || 0), 0);
+  // Include legacy sale-level return markers even if their old return rows are missing.
+  const periodReturnsAmount = Math.max(
+    recordedPeriodReturnsAmount,
+    Math.max(0, grossSalesRevenue - totalSalesRevenue),
+  );
   const totalSalesCount = periodActiveSales.length;
   const cashSales = periodActiveSales.filter((s) => s.payment_method === "cash");
   const upiSales = periodActiveSales.filter((s) => s.payment_method === "upi");
@@ -672,27 +674,20 @@ export function OfflineAnalyticsTab() {
     (s) => !["cash", "upi", "card"].includes(s.payment_method),
   );
 
-  const getSaleNetRevenue = (s: Sale | CanonicalPOSSale) => {
-    const isPartiallyReturned = s.return_status === "partially_returned";
-    const returnedDeduction = Number(s.returned_amount || 0);
-    if (isPartiallyReturned && returnedDeduction > 0) {
-      return Math.max(0, Number(s.total) - returnedDeduction);
-    }
-    return Number(s.total);
-  };
-
-  const cashTotal = cashSales.reduce((s, o) => s + getSaleNetRevenue(o), 0);
-  const upiTotal = upiSales.reduce((s, o) => s + getSaleNetRevenue(o), 0);
-  const cardTotal = cardSales.reduce((s, o) => s + getSaleNetRevenue(o), 0);
-  const otherTotal = otherSales.reduce((s, o) => s + getSaleNetRevenue(o), 0);
+  const cashTotal = cashSales.reduce((sum, sale) => sum + getSaleNetRevenue(sale), 0);
+  const upiTotal = upiSales.reduce((sum, sale) => sum + getSaleNetRevenue(sale), 0);
+  const cardTotal = cardSales.reduce((sum, sale) => sum + getSaleNetRevenue(sale), 0);
+  const otherTotal = otherSales.reduce((sum, sale) => sum + getSaleNetRevenue(sale), 0);
   const totalDiscount = periodActiveSales.reduce(
     (sum, sale) => sum + Number(sale.discount ?? 0),
     0,
   );
 
-  // Today's revenue
-  const todaySalesRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
-  const todayRevenue = Math.max(0, todaySalesRevenue - todayReturnsAmount);
+  // Today's Sales card uses net revenue per active sale; do not subtract the return ledger a second time.
+  const todayRevenue = todaySales.reduce(
+    (sum, sale) => sum + getSaleNetRevenue(sale),
+    0,
+  );
 
   // Top products with rich metadata (period synchronized, strictly active unreturned items)
   const topProducts = useMemo(() => {
@@ -737,44 +732,6 @@ export function OfflineAnalyticsTab() {
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
   }, [activeSales, inCurrentPeriod]);
-
-  const handleClearDummyData = async () => {
-    if (
-      !window.confirm(
-        "Are you sure you want to completely WIPE all offline sales history? This action cannot be undone.",
-      )
-    )
-      return;
-    try {
-      // 1. Clear local offline queue, cart, and IndexedDB stores
-      if (typeof window !== "undefined") {
-        await clearAllQueuedSales();
-      }
-
-      // 2. Try RPC first
-      const { error: rpcErr } = await (supabase.rpc as any)("admin_nuke_all_sales");
-      if (rpcErr) {
-        // Fallback to direct DELETE
-        await supabase
-          .from("offline_sale_items")
-          .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000");
-        await supabase
-          .from("offline_sales")
-          .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000");
-        await supabase
-          .from("pos_customers")
-          .update({ total_purchases: 0, total_spend: 0 })
-          .neq("id", "00000000-0000-0000-0000-000000000000");
-      }
-
-      toast.success("Successfully wiped all sales history.");
-      setTimeout(() => window.location.reload(), 500);
-    } catch (e) {
-      toast.error("Error: " + (e as Error).message);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -905,12 +862,6 @@ export function OfflineAnalyticsTab() {
             )}
           </div>
 
-          <button
-            onClick={handleClearDummyData}
-            className="px-3 py-2 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/25 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-          >
-            Clear Test Sales
-          </button>
         </div>
       </div>
 
