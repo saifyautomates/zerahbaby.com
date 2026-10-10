@@ -494,6 +494,8 @@ export type PlaceSaleInput = {
   store_credit_used?: number;
   credit_token?: string;
   coupon_code?: string;
+  /** Cash received at checkout; permits recording partial payments as an outstanding balance. */
+  cash_tendered?: number;
   items: Array<{
     product_id?: string;
     variant_id?: string;
@@ -537,6 +539,7 @@ export function usePlaceOfflineSale() {
             _store_credit_used: input.store_credit_used || 0,
             _credit_token: input.credit_token || null,
             _coupon_code: input.coupon_code?.trim() || null,
+            _cash_tendered: input.cash_tendered ?? null,
           });
         } catch (fetchErr: unknown) {
           const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
