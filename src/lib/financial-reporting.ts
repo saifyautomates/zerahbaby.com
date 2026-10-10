@@ -80,6 +80,9 @@ export interface ReportPOSSale {
   return_status?: string | null;
   returned_amount?: number | null;
   payment_method?: string | null;
+  payment_status?: string | null;
+  amount_paid?: number | null;
+  change_given?: number | null;
   total?: number;
   subtotal?: number;
   discount?: number;
@@ -614,15 +617,55 @@ export function calculateFinancialMetrics({
   const avgOrderValue = totalTransactionsCount > 0 ? netRevenue / totalTransactionsCount : 0;
   const grossAvgOrderValue = totalTransactionsCount > 0 ? grossRevenue / totalTransactionsCount : 0;
 
-  // 8. Cash outstanding (unpaid online COD orders in period)
-  const pendingCodOrders = orders.filter(
-    (o) =>
-      isInPeriod(o.created_at) &&
-      o.status !== "cancelled" &&
-      o.payment_status !== "paid" &&
-      (o.payment_method === "cod" || o.payment_status === "pending"),
+  // 8. Cash outstanding from unpaid online COD and explicitly due POS sales.
+  // Legacy POS rows with payment_status="paid" are NOT treated as due even if
+  // amount_paid is absent/zero in old data.
+  const pendingCodOrders = orders.filter((order) => {
+    const paymentStatus = String(order.payment_status || "").toLowerCase().trim();
+    const paymentMethod = String(order.payment_method || "").toLowerCase().trim();
+    const orderStatus = String(order.status || "").toLowerCase().trim();
+    return (
+      isInPeriod(order.created_at) &&
+      orderStatus !== "cancelled" &&
+      paymentStatus !== "paid" &&
+      (paymentMethod === "cod" || paymentStatus === "pending" || paymentStatus === "partial")
+    );
+  });
+
+  const onlineCashOutstanding = pendingCodOrders.reduce(
+    (sum, order) => sum + Math.max(0, Number(order.total || 0)),
+    0,
   );
-  const cashOutstanding = pendingCodOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+  const pendingPosDueSales = validPos.filter((sale) => {
+    const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+    const returnStatus = String(sale.return_status || "").toLowerCase().trim();
+    const dueStatuses = new Set(["pending", "unpaid", "partial", "partially_paid", "due"]);
+    if (!dueStatuses.has(paymentStatus)) return false;
+    if (["cancelled", "voided", "failed", "sync_failed"].includes(String(sale.status || "").toLowerCase().trim())) {
+      return false;
+    }
+    if (["returned", "fully_returned", "completed"].includes(returnStatus)) return false;
+    const balanceDue =
+      Number(sale.total || 0) -
+      Number(sale.amount_paid || 0) -
+      Number(sale.store_credit_used || 0);
+    return balanceDue > 0;
+  });
+
+  const posCashOutstanding = pendingPosDueSales.reduce(
+    (sum, sale) =>
+      sum +
+      Math.max(
+        0,
+        Number(sale.total || 0) -
+          Number(sale.amount_paid || 0) -
+          Number(sale.store_credit_used || 0),
+      ),
+    0,
+  );
+  const cashOutstanding = onlineCashOutstanding + posCashOutstanding;
+  const pendingCodCount = pendingCodOrders.length + pendingPosDueSales.length;
 
   // 9. Total catalog valuation (Authoritative Shared Valuation Engine)
   const stockValuation = calculateStockValuation(products as unknown as StockValuationItem[], {
@@ -674,7 +717,7 @@ export function calculateFinancialMetrics({
     avgOrderValue,
     grossAvgOrderValue,
     cashOutstanding,
-    pendingCodCount: pendingCodOrders.length,
+    pendingCodCount,
     totalCatalogValue,
     totalCatalogCost,
     stockValuation,
