@@ -70,6 +70,10 @@ export interface ReportPOSItem {
   quantity_returned?: number;
   returned_quantity?: number;
   return_status?: string | null;
+  final_unit_paid_price?: number | null;
+  unit_selling_price?: number | null;
+  allocated_bill_discount?: number | null;
+  allocated_coupon_discount?: number | null;
 }
 
 export interface ReportPOSSale {
@@ -80,6 +84,9 @@ export interface ReportPOSSale {
   return_status?: string | null;
   returned_amount?: number | null;
   payment_method?: string | null;
+  payment_status?: string | null;
+  amount_paid?: number | null;
+  change_given?: number | null;
   total?: number;
   subtotal?: number;
   discount?: number;
@@ -121,7 +128,11 @@ export interface ReportReturn {
   status?: string;
   refund_status?: string;
   refund_amount?: number;
+  refund_subtotal?: number | null;
+  refund_total?: number | null;
   refund_method?: string;
+  credit_used?: number | null;
+  credit_balance?: number | null;
   customer_name?: string;
   customer_phone?: string;
   offline_return_items?: ReportReturnItem[];
@@ -328,16 +339,55 @@ export function calculateFinancialMetrics({
   );
   const grossRevenue = onlineGrossRevenue + offlineGrossRevenue;
 
-  // A sale marked fully returned must reduce net revenue even when older
-  // records have no offline_returns row and returned_amount is still zero.
+  // Reconcile returns per original POS sale. Linked return rows are not added a
+  // second time; the greatest authoritative amount from the return row, sale snapshot,
+  // or returned item quantity is used. This also covers legacy sales whose return row
+  // is missing, while preserving the sale-item returned quantities as double-return guards.
   const fullReturnStatuses = new Set(["returned", "fully_returned", "completed"]);
+  const getReturnSaleKeys = (ret: ReportReturn): string[] =>
+    [
+      ret.sale_id,
+      ret.original_sale_id,
+      ret.linked_sale_id,
+      ret.original_sale_number,
+    ]
+      .filter((key): key is string => Boolean(key))
+      .map((key) => key.trim())
+      .filter((key, index, keys) => keys.indexOf(key) === index);
+
+  const refundsBySaleKey = new Map<string, number>();
+  for (const ret of validReturns) {
+    const amount = Math.max(0, Number(ret.refund_total || ret.refund_amount || 0));
+    for (const key of getReturnSaleKeys(ret)) {
+      refundsBySaleKey.set(key, (refundsBySaleKey.get(key) || 0) + amount);
+    }
+  }
+
   const fullyReturnedPosSales = validPos.filter((sale) => {
     const returnStatus = (sale.return_status || "").toLowerCase().trim();
     const saleTotal = Math.max(0, Number(sale.total || 0));
     const returnedAmount = Math.max(0, Number(sale.returned_amount || 0));
-
+    const items = sale.offline_sale_items || [];
+    const hasItems = items.length > 0;
+    const allItemsReturned =
+      hasItems &&
+      items.every((item) => {
+        const soldQty = Math.max(0, Number(item.quantity_sold || item.qty || item.quantity || 1));
+        const returnedQty = Math.min(
+          soldQty,
+          Math.max(
+            Number(item.quantity_returned || 0),
+            Number(item.returned_quantity || 0),
+            ["returned", "fully_returned"].includes(String(item.return_status || "").toLowerCase().trim())
+              ? soldQty
+              : 0,
+          ),
+        );
+        return returnedQty >= soldQty;
+      });
     return (
       fullReturnStatuses.has(returnStatus) ||
+      allItemsReturned ||
       (saleTotal > 0 && returnedAmount >= saleTotal)
     );
   });
@@ -348,34 +398,80 @@ export function calculateFinancialMetrics({
     if (sale.sale_number) fullyReturnedSaleKeys.add(sale.sale_number);
   }
 
-  const getReturnSaleKeys = (ret: ReportReturn): string[] =>
-    [
-      ret.sale_id,
-      ret.original_sale_id,
-      ret.linked_sale_id,
-      ret.original_sale_number,
-    ]
-      .filter((key): key is string => Boolean(key))
-      .map((key) => key.trim());
+  const allCurrentPeriodSaleKeys = new Set<string>();
+  for (const sale of validPos) {
+    allCurrentPeriodSaleKeys.add(sale.id);
+    if (sale.sale_number) allCurrentPeriodSaleKeys.add(sale.sale_number);
+  }
 
-  // If a return record belongs to a fully returned sale, the sale's full
-  // total is already deducted below; skip that record to avoid double-counting.
-  const recordedOfflineReturns = validReturns.reduce((sum, ret) => {
-    const linkedToFullyReturnedSale = getReturnSaleKeys(ret).some((key) =>
-      fullyReturnedSaleKeys.has(key),
+  const amountReturnedForSale = (sale: ReportPOSSale): number => {
+    const saleTotal = Math.max(0, Number(sale.total || 0));
+    const saleNumber = sale.sale_number || "";
+    const returnStatus = (sale.return_status || "").toLowerCase().trim();
+    if (fullReturnStatuses.has(returnStatus) || fullyReturnedSaleKeys.has(sale.id)) {
+      return saleTotal;
+    }
+
+    const linkedRecordedRefund = Math.max(
+      refundsBySaleKey.get(sale.id) || 0,
+      saleNumber ? refundsBySaleKey.get(saleNumber) || 0 : 0,
     );
-    return linkedToFullyReturnedSale
-      ? sum
-      : sum + Number(ret.refund_amount || 0);
-  }, 0);
 
-  const impliedFullReturnAmount = fullyReturnedPosSales.reduce(
-    (sum, sale) => sum + Math.max(0, Number(sale.total || 0)),
+    const inferredFromItems = (sale.offline_sale_items || []).reduce((sum, item) => {
+      const soldQty = Math.max(0, Number(item.quantity_sold || item.qty || item.quantity || 1));
+      const returnedQty = Math.min(
+        soldQty,
+        Math.max(
+          Number(item.quantity_returned || 0),
+          Number(item.returned_quantity || 0),
+          ["returned", "fully_returned"].includes(String(item.return_status || "").toLowerCase().trim())
+            ? soldQty
+            : 0,
+        ),
+      );
+      if (returnedQty <= 0) return sum;
+
+      const explicitPaidPrice = Number(item.final_unit_paid_price || 0);
+      const unitPrice = Number(item.price || item.unit_selling_price || 0);
+      const allocatedDiscount =
+        Number(item.allocated_bill_discount || 0) +
+        Number(item.allocated_coupon_discount || 0);
+      const effectiveUnitPaidPrice =
+        explicitPaidPrice > 0
+          ? explicitPaidPrice
+          : Math.max(0, unitPrice - allocatedDiscount);
+      return sum + effectiveUnitPaidPrice * returnedQty;
+    }, 0);
+
+    return Math.min(
+      saleTotal,
+      Math.max(
+        0,
+        Number(sale.returned_amount || 0),
+        linkedRecordedRefund,
+        inferredFromItems,
+      ),
+    );
+  };
+
+  const impliedReturnsForPOSales = validPos.reduce(
+    (sum, sale) => sum + amountReturnedForSale(sale),
     0,
   );
 
+  // Keep standalone/orphan return records in the accounting total, but do not
+  // count records linked to a sale again after its own returned amount was reconciled.
+  const standaloneRecordedReturns = validReturns.reduce((sum, ret) => {
+    const linkedToCurrentPeriodSale = getReturnSaleKeys(ret).some((key) =>
+      allCurrentPeriodSaleKeys.has(key),
+    );
+    return linkedToCurrentPeriodSale
+      ? sum
+      : sum + Math.max(0, Number(ret.refund_total || ret.refund_amount || 0));
+  }, 0);
+
   const offlineReturns =
-    Math.round((recordedOfflineReturns + impliedFullReturnAmount) * 100) / 100;
+    Math.round((impliedReturnsForPOSales + standaloneRecordedReturns) * 100) / 100;
   const onlineReturns = 0;
   const totalReturns = offlineReturns + onlineReturns;
 
@@ -614,15 +710,57 @@ export function calculateFinancialMetrics({
   const avgOrderValue = totalTransactionsCount > 0 ? netRevenue / totalTransactionsCount : 0;
   const grossAvgOrderValue = totalTransactionsCount > 0 ? grossRevenue / totalTransactionsCount : 0;
 
-  // 8. Cash outstanding (unpaid online COD orders in period)
-  const pendingCodOrders = orders.filter(
-    (o) =>
-      isInPeriod(o.created_at) &&
-      o.status !== "cancelled" &&
-      o.payment_status !== "paid" &&
-      (o.payment_method === "cod" || o.payment_status === "pending"),
+  // 8. Cash outstanding from unpaid online COD and explicitly due POS sales.
+  // Legacy POS rows with payment_status="paid" are NOT treated as due even if
+  // amount_paid is absent/zero in old data.
+  const pendingCodOrders = orders.filter((order) => {
+    const paymentStatus = String(order.payment_status || "").toLowerCase().trim();
+    const paymentMethod = String(order.payment_method || "").toLowerCase().trim();
+    const orderStatus = String(order.status || "").toLowerCase().trim();
+    return (
+      isInPeriod(order.created_at) &&
+      orderStatus !== "cancelled" &&
+      paymentStatus !== "paid" &&
+      (paymentMethod === "cod" || paymentStatus === "pending" || paymentStatus === "partial")
+    );
+  });
+
+  const onlineCashOutstanding = pendingCodOrders.reduce(
+    (sum, order) => sum + Math.max(0, Number(order.total || 0)),
+    0,
   );
-  const cashOutstanding = pendingCodOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+  const pendingPosDueSales = validPos.filter((sale) => {
+    const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+    const returnStatus = String(sale.return_status || "").toLowerCase().trim();
+    const dueStatuses = new Set(["pending", "unpaid", "partial", "partially_paid", "due"]);
+    if (!dueStatuses.has(paymentStatus)) return false;
+    if (["cancelled", "voided", "failed", "sync_failed"].includes(String(sale.status || "").toLowerCase().trim())) {
+      return false;
+    }
+    if (["returned", "fully_returned", "completed"].includes(returnStatus)) return false;
+    const balanceDue =
+      Number(sale.total || 0) -
+      Number(sale.returned_amount || 0) -
+      Number(sale.amount_paid || 0) -
+      Number(sale.store_credit_used || 0);
+    return balanceDue > 0;
+  });
+
+  const posCashOutstanding = pendingPosDueSales.reduce(
+    (sum, sale) =>
+      sum +
+      Math.max(
+        0,
+        Number(sale.total || 0) -
+          Number(sale.returned_amount || 0) -
+          Number(sale.amount_paid || 0) -
+          Number(sale.store_credit_used || 0),
+      ),
+    0,
+  );
+  const cashOutstanding = onlineCashOutstanding + posCashOutstanding;
+  const pendingCodCount = pendingCodOrders.length + pendingPosDueSales.length;
 
   // 9. Total catalog valuation (Authoritative Shared Valuation Engine)
   const stockValuation = calculateStockValuation(products as unknown as StockValuationItem[], {
@@ -638,8 +776,15 @@ export function calculateFinancialMetrics({
   const netSales = netRevenue;
   const returnsExchangeCredit = totalReturns;
   const returnedItemsCount = totalUnitsReturned;
-  // Only actual recorded return entries count as issued store credit; inferred full-sale adjustments affect revenue only.
-  const storeCreditIssued = recordedOfflineReturns;
+  // Only the amount actually issued through a credit/voucher method counts as new store credit.
+  // refund_total is the value of merchandise returned; refund_amount is the payout/credit issued.
+  const storeCreditMethods = new Set(["exchange_credit", "store_credit", "credit", "voucher", "exchange"]);
+  const storeCreditIssued = validReturns.reduce((sum, ret) => {
+    const method = String(ret.refund_method || "").toLowerCase().trim();
+    return storeCreditMethods.has(method)
+      ? sum + Math.max(0, Number(ret.refund_amount || 0))
+      : sum;
+  }, 0);
   const storeCreditUsedInSales = validPos.reduce(
     (sum, s) => sum + Number(s.store_credit_used || 0),
     0,
@@ -674,7 +819,7 @@ export function calculateFinancialMetrics({
     avgOrderValue,
     grossAvgOrderValue,
     cashOutstanding,
-    pendingCodCount: pendingCodOrders.length,
+    pendingCodCount,
     totalCatalogValue,
     totalCatalogCost,
     stockValuation,

@@ -2437,11 +2437,20 @@ export function POSTab() {
         };
       });
 
-    if (payableAfterCredit > 0 && paymentMethod === "cash") {
-      if (typeof cashTendered === "number" && cashTendered < payableAfterCredit) {
-        toast.error(
-          `Cash tendered (₹${cashTendered}) is less than payable amount (₹${payableAfterCredit})`,
-        );
+    if (payableAfterCredit > 0 && paymentMethod === "cash" && typeof cashTendered !== "number") {
+      toast.error("Enter the cash received, or select Due / Credit if the customer will pay later.");
+      return;
+    }
+
+    const createsOutstandingBalance =
+      paymentMethod === "due" ||
+      (paymentMethod === "cash" &&
+        typeof cashTendered === "number" &&
+        cashTendered + 0.01 < payableAfterCredit);
+
+    if (payableAfterCredit > 0 && createsOutstandingBalance) {
+      if (customerMode === "walkin" || !customerName.trim()) {
+        toast.error("Select a named customer before recording a sale with an outstanding balance.");
         return;
       }
     }
@@ -2464,6 +2473,10 @@ export function POSTab() {
         idempotency_key: idempotencyKey,
         store_credit_used: effectiveCreditUsed,
         credit_token: creditTokenInput.trim() || undefined,
+        cash_tendered:
+          paymentMethod === "cash" && typeof cashTendered === "number"
+            ? cashTendered
+            : undefined,
       });
 
       // Synchronously invalidate and broadcast canonical reporting updates
@@ -4605,13 +4618,14 @@ export function POSTab() {
 
                     {payableAfterCredit > 0 ? (
                       <>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                           {(
                             [
                               ["cash", "Cash", Banknote],
                               ["upi", "UPI / QR", Smartphone],
                               ["card", "Card / POS", CreditCard],
                               ["other", "Other Tender", Wallet],
+                              ["due", "Due / Credit", Wallet],
                             ] as const
                           ).map(([method, label, Icon]) => (
                             <button
@@ -4621,6 +4635,8 @@ export function POSTab() {
                                 setPaymentMethod(method);
                                 if (method === "cash") {
                                   setCashTendered(payableAfterCredit);
+                                } else if (method === "due") {
+                                  setCashTendered("");
                                 }
                               }}
                               className={`flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 text-xs font-bold transition-all cursor-pointer ${
@@ -4680,7 +4696,7 @@ export function POSTab() {
                                       e.target.value === "" ? "" : Number(e.target.value),
                                     )
                                   }
-                                  placeholder={`Enter cash amount (min ${payableAfterCredit})`}
+                                  placeholder="Enter cash received (partial payment allowed)"
                                   min={0}
                                   className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-sm font-bold outline-none focus:border-primary transition-all"
                                 />
@@ -5196,7 +5212,13 @@ export function POSTab() {
                           <span>
                             {payableAfterCredit === 0 && effectiveCreditUsed > 0
                               ? `Complete Sale — Settle ₹0 (100% Store Credit)`
-                              : `Complete Sale — ${formatPrice(payableAfterCredit)}`}
+                              : paymentMethod === "due"
+                                ? `Complete Sale — Record Due ${formatPrice(payableAfterCredit)}`
+                                : paymentMethod === "cash" &&
+                                    typeof cashTendered === "number" &&
+                                    cashTendered < payableAfterCredit
+                                  ? `Complete Sale — Collect ${formatPrice(cashTendered)} + Due ${formatPrice(payableAfterCredit - cashTendered)}`
+                                  : `Complete Sale — ${formatPrice(payableAfterCredit)}`}
                           </span>
                         </>
                       )}

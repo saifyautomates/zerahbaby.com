@@ -78,7 +78,11 @@ export type OfflineReturn = {
   customer_phone: string;
   customer_email: string;
   customer_id: string | null;
+  /** Actual cash/store-credit payout to the customer after outstanding due is offset. */
   refund_amount: number;
+  /** Discounted sale value of the returned merchandise; drives net sales reconciliation. */
+  refund_total?: number;
+  refund_subtotal?: number;
   refund_method: string;
   refund_status: string;
   return_reason: string;
@@ -102,8 +106,10 @@ export type ReturnResult = {
   return_id: string;
   return_number: string;
   refund_amount: number;
+  refund_total?: number;
+  refund_subtotal?: number;
   refund_method?: string;
-  credit_token: string;
+  credit_token?: string | null;
   customer_name: string;
   customer_phone?: string;
   customer_id?: string | null;
