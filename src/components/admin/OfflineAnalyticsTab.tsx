@@ -600,19 +600,29 @@ export function OfflineAnalyticsTab() {
     return Math.round((activeSales.length / uniqueDays.size) * 10) / 10;
   }, [activeSales]);
 
-  /** Hourly footfall for today (IST) — 24 buckets */
+  // Returns in the ledger are useful for audit/history, but net sales must be reconciled
+  // against each sale's authoritative return status and returned_amount. Never subtract
+  // the same return once from the sale and again from the return list.
+  const periodActiveSales = useMemo(
+    () => activeSales.filter((s) => inCurrentPeriod(s.created_at)),
+    [activeSales, inCurrentPeriod],
+  );
+
+  /** Hourly footfall for active reporting period (IST) — 24 buckets */
   const hourlyFootfall = useMemo(() => {
     const buckets = Array.from({ length: 24 }, (_, h) => ({
       hour: h,
       label: h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`,
       customers: 0,
     }));
-    for (const s of todaySales) {
+    for (const s of periodActiveSales) {
       const h = utcToISTHour(s.created_at);
-      buckets[h].customers += 1;
+      if (h >= 0 && h < 24) {
+        buckets[h].customers += 1;
+      }
     }
     return buckets;
-  }, [todaySales]);
+  }, [periodActiveSales]);
 
   const peakHour = useMemo(
     () =>
@@ -621,14 +631,6 @@ export function OfflineAnalyticsTab() {
         hourlyFootfall[0],
       ),
     [hourlyFootfall],
-  );
-
-  // Returns in the ledger are useful for audit/history, but net sales must be reconciled
-  // against each sale's authoritative return status and returned_amount. Never subtract
-  // the same return once from the sale and again from the return list.
-  const periodActiveSales = useMemo(
-    () => activeSales.filter((s) => inCurrentPeriod(s.created_at)),
-    [activeSales, inCurrentPeriod],
   );
 
   const getSaleNetRevenue = (sale: Sale | CanonicalPOSSale) => {
@@ -923,7 +925,7 @@ export function OfflineAnalyticsTab() {
         <div className="px-5 pt-5 pb-3 border-b border-border/60">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
             <Users className="size-4 text-primary" />
-            Customer Footfall — Today (IST)
+            Customer Footfall — {datePreset === "today" ? "Today" : datePreset === "yesterday" ? "Yesterday" : dateRangeText} (IST)
           </h3>
         </div>
 
@@ -931,11 +933,11 @@ export function OfflineAnalyticsTab() {
         <div className="grid grid-cols-3 divide-x divide-border/60">
           <div className="p-5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-              Customers Today
+              {datePreset === "today" ? "Customers Today" : datePreset === "yesterday" ? "Customers Yesterday" : "Period Customers"}
             </p>
-            <p className="text-4xl font-black text-primary leading-none">{todaySales.length}</p>
+            <p className="text-4xl font-black text-primary leading-none">{periodActiveSales.length}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">
-              {todaySales.length === 1 ? "walk-in today" : "walk-ins today"}
+              {periodActiveSales.length === 1 ? "walk-in" : "walk-ins"} {datePreset === "today" ? "today" : datePreset === "yesterday" ? "yesterday" : "in period"}
             </p>
           </div>
           <div className="p-5">
@@ -949,7 +951,7 @@ export function OfflineAnalyticsTab() {
           </div>
           <div className="p-5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-              Peak Hour Today
+              {datePreset === "today" ? "Peak Hour Today" : datePreset === "yesterday" ? "Peak Hour Yesterday" : "Peak Hour"}
             </p>
             {peakHour.customers > 0 ? (
               <>
