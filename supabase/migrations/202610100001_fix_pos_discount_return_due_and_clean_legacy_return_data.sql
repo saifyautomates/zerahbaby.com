@@ -1083,13 +1083,50 @@ BEGIN
       LIMIT 1;
     END IF;
 
-    -- Keep individual return-item totals reconciled to the voucher/refund amount.
-    -- If unit-level rounding differs by a few paise, put the residual on the
-    -- final line rather than creating or losing money across return rows.
-    v_line_refund_total := LEAST(
-      ROUND(item_refund_price * item_qty, 2),
-      v_return_amount_remaining
-    );
+    -- Reuse the per-item remaining paid value so repeated partial returns of
+    -- fractional-price units recover the final paise on the last returned unit.
+    IF item_orig_sale_item_id IS NOT NULL THEN
+      v_original_item_units := GREATEST(
+        1,
+        COALESCE(
+          NULLIF(v_orig_item.quantity_sold, 0),
+          NULLIF(v_orig_item.qty, 0),
+          NULLIF(v_orig_item.quantity, 0),
+          1
+        )
+      );
+      v_item_returnable := GREATEST(
+        0,
+        v_original_item_units - GREATEST(
+          COALESCE(v_orig_item.quantity_returned, 0),
+          COALESCE(v_orig_item.returned_quantity, 0)
+        )
+      );
+
+      SELECT COALESCE(SUM(ri.total), 0)
+      INTO v_returned_item_amount
+      FROM public.offline_return_items ri
+      WHERE ri.original_sale_item_id = item_orig_sale_item_id;
+
+      v_item_remaining_value := GREATEST(
+        0,
+        ROUND(item_refund_price * v_original_item_units, 2) - v_returned_item_amount
+      );
+
+      IF item_qty >= v_item_returnable THEN
+        v_line_refund_total := v_item_remaining_value;
+      ELSE
+        v_line_refund_total := LEAST(
+          v_item_remaining_value,
+          ROUND(item_refund_price * item_qty, 2)
+        );
+      END IF;
+    ELSE
+      v_line_refund_total := ROUND(item_refund_price * item_qty, 2);
+    END IF;
+
+    -- A sale-level cent-rounding residual is allocated to the last detail row.
+    v_line_refund_total := LEAST(v_line_refund_total, v_return_amount_remaining);
     IF item_qty > 0 AND ABS(v_line_refund_total - ROUND(item_refund_price * item_qty, 2)) > 0.001 THEN
       item_refund_price := ROUND(v_line_refund_total / item_qty, 8);
     END IF;
