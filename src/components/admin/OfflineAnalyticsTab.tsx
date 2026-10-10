@@ -664,7 +664,7 @@ export function OfflineAnalyticsTab() {
   );
   const recordedPeriodReturnsAmount = returnsList
     .filter((ret) => inCurrentPeriod(ret.created_at))
-    .reduce((sum, ret) => sum + Number(ret.refund_amount || 0), 0);
+    .reduce((sum, ret) => sum + Number(ret.refund_total || ret.refund_amount || 0), 0);
   // Include legacy sale-level return markers even if their old return rows are missing.
   const periodReturnsAmount = Math.max(
     recordedPeriodReturnsAmount,
