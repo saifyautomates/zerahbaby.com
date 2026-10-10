@@ -5388,6 +5388,7 @@ export function POSTab() {
       {isA4InvoiceOpen && saleResult && (
         <A4Invoice
           sale={{
+            id: saleResult.sale_id,
             sale_number: saleResult.sale_number,
             sale_date: new Date(),
             customer_name: saleResult.customer_name,

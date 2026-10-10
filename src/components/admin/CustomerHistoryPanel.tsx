@@ -330,6 +330,7 @@ export function CustomerHistoryPanel() {
       {a4InvoiceSale && (
         <A4Invoice
           sale={{
+            id: a4InvoiceSale.id,
             sale_number: a4InvoiceSale.sale_number,
             sale_date: new Date(a4InvoiceSale.created_at),
             customer_name: a4InvoiceSale.customer_name || "Walk-in Customer",

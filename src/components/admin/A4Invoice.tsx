@@ -30,7 +30,9 @@ import { useSettings } from "@/lib/store";
 /* ------------------------------------------------------------------ */
 
 export type A4InvoiceSale = {
+  id?: string;
   sale_number: string;
+  monthly_bill_number?: string | number | null;
   customer_name: string;
   customer_phone?: string;
   customer_email?: string;
@@ -112,6 +114,93 @@ function escapeHtml(str: string): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/*  Monthly Bill Number Resolution Helpers                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Formats a monthly number (e.g. 1 -> "Bill No - 01", 10 -> "Bill No - 10", 1000 -> "Bill No - 1000")
+ */
+export function formatMonthlyBillNumber(val: number | string): string {
+  if (typeof val === "number" && !isNaN(val) && val > 0) {
+    const padded = val < 10 ? `0${val}` : `${val}`;
+    return `Bill No - ${padded}`;
+  }
+  const str = String(val || "").trim();
+  if (/^Bill\s*No/i.test(str)) {
+    return str;
+  }
+  const cleanDigits = str.replace(/\D/g, "");
+  if (cleanDigits) {
+    const num = parseInt(cleanDigits, 10);
+    if (!isNaN(num) && num > 0) {
+      const padded = num < 10 ? `0${num}` : `${num}`;
+      return `Bill No - ${padded}`;
+    }
+  }
+  return "Bill No - 01";
+}
+
+/**
+ * Resolves the 1-based sequential bill number for a sale within its calendar month (IST).
+ * 1st sale of month -> "Bill No - 01"
+ * 2nd sale of month -> "Bill No - 02"
+ * ...
+ * 1000th sale of month -> "Bill No - 1000"
+ * Resets back to "Bill No - 01" at the start of every new month.
+ */
+export async function getMonthlyBillNumberForSale(
+  saleDate: Date | string,
+  saleId?: string | null,
+  saleNumber?: string | null,
+): Promise<string> {
+  try {
+    const date = saleDate instanceof Date ? saleDate : new Date(saleDate);
+    const safeDate = isNaN(date.getTime()) ? new Date() : date;
+
+    const istFmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+    });
+    const [year, month] = istFmt.format(safeDate).split("-");
+    const yearNum = parseInt(year, 10);
+    const monthNum = parseInt(month, 10);
+
+    const startOfMonthIST = `${year}-${month}-01T00:00:00+05:30`;
+    const nextMonthNum = monthNum === 12 ? 1 : monthNum + 1;
+    const nextYearNum = monthNum === 12 ? yearNum + 1 : yearNum;
+    const nextMonthStr = nextMonthNum < 10 ? `0${nextMonthNum}` : `${nextMonthNum}`;
+    const endOfMonthIST = `${nextYearNum}-${nextMonthStr}-01T00:00:00+05:30`;
+
+    const { data: monthSales, error } = await supabase
+      .from("offline_sales")
+      .select("id, sale_number, created_at")
+      .gte("created_at", startOfMonthIST)
+      .lt("created_at", endOfMonthIST)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+
+    if (error || !monthSales || monthSales.length === 0) {
+      return "Bill No - 01";
+    }
+
+    let matchIdx = -1;
+    if (saleId) {
+      matchIdx = monthSales.findIndex((s) => s.id === saleId);
+    }
+    if (matchIdx === -1 && saleNumber) {
+      matchIdx = monthSales.findIndex((s) => s.sale_number === saleNumber);
+    }
+
+    const billNum = matchIdx !== -1 ? matchIdx + 1 : monthSales.length;
+    return formatMonthlyBillNumber(billNum);
+  } catch {
+    return "Bill No - 01";
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  A4 HTML Builder (self-contained, no Tailwind)                      */
 /* ------------------------------------------------------------------ */
 
@@ -119,6 +208,7 @@ export function buildA4HTML(
   sale: A4InvoiceSale,
   items: A4InvoiceItem[],
   store: ReturnType<typeof useSettings>,
+  billNoOverride?: string,
 ): string {
   // Resolve real date and real timing
   let date: Date;
@@ -155,11 +245,20 @@ export function buildA4HTML(
     })
     .toLowerCase();
 
-  // Clean bill number e.g. "Bill No - 01"
-  const rawSaleNo = (sale.sale_number || "01").trim();
-  const billNoDisplay = /^Bill\s*No/i.test(rawSaleNo)
-    ? rawSaleNo
-    : `Bill No - ${rawSaleNo.replace(/^(ZR-POS-|POS-|BILL-)/i, "")}`;
+  // Clean bill number e.g. "Bill No - 01" (resets to 01 at start of each month)
+  let billNoDisplay = (billNoOverride || "").trim();
+  if (!billNoDisplay) {
+    if (sale.monthly_bill_number != null) {
+      billNoDisplay = formatMonthlyBillNumber(sale.monthly_bill_number);
+    } else {
+      const rawSaleNo = (sale.sale_number || "01").trim();
+      if (/^Bill\s*No/i.test(rawSaleNo)) {
+        billNoDisplay = rawSaleNo;
+      } else {
+        billNoDisplay = formatMonthlyBillNumber(rawSaleNo);
+      }
+    }
+  }
 
   // Store information with photo defaults
   const storeAddress =
@@ -456,6 +555,40 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
   const [printFailedReason, setPrintFailedReason] = useState<string | null>(null);
   const [invoicePrinter, setInvoicePrinter] = useState<string>("Default A4 Printer");
 
+  // Monthly sequential bill number (e.g. "Bill No - 01", "Bill No - 02"... resets monthly)
+  const [billNoDisplay, setBillNoDisplay] = useState<string>(() => {
+    if (sale.monthly_bill_number != null) {
+      return formatMonthlyBillNumber(sale.monthly_bill_number);
+    }
+    const rawSaleNo = (sale.sale_number || "01").trim();
+    if (/^Bill\s*No/i.test(rawSaleNo)) {
+      return rawSaleNo;
+    }
+    return formatMonthlyBillNumber(rawSaleNo);
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    if (sale.monthly_bill_number != null) {
+      setBillNoDisplay(formatMonthlyBillNumber(sale.monthly_bill_number));
+      return;
+    }
+
+    getMonthlyBillNumberForSale(
+      sale.sale_date || new Date(),
+      sale.id,
+      sale.sale_number,
+    ).then((resolved) => {
+      if (isMounted && resolved) {
+        setBillNoDisplay(resolved);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sale.sale_number, sale.sale_date, sale.id, sale.monthly_bill_number]);
+
   useEffect(() => {
     supabase
       .from("site_settings")
@@ -472,7 +605,21 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     setPrintStatus("printing");
     setPrintFailedReason(null);
     try {
-      const html = buildA4HTML(sale, items, storeSettings);
+      let effectiveBillNo = billNoDisplay;
+      if (!effectiveBillNo || effectiveBillNo === "Bill No - 01") {
+        if (sale.monthly_bill_number != null) {
+          effectiveBillNo = formatMonthlyBillNumber(sale.monthly_bill_number);
+        } else {
+          effectiveBillNo = await getMonthlyBillNumberForSale(
+            sale.sale_date || new Date(),
+            sale.id,
+            sale.sale_number,
+          );
+          setBillNoDisplay(effectiveBillNo);
+        }
+      }
+
+      const html = buildA4HTML(sale, items, storeSettings, effectiveBillNo);
 
       // Attempt QZ Tray direct silent print if configured & not default
       if (invoicePrinter && invoicePrinter !== "Default A4 Printer") {
@@ -489,16 +636,30 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
       }
 
       // Seamless browser system print dialog
-      doSystemPrintFallback();
+      doSystemPrintFallback(effectiveBillNo);
     } catch {
       doSystemPrintFallback();
     }
   };
 
   /** Print via hidden iframe */
-  const doSystemPrintFallback = () => {
+  const doSystemPrintFallback = async (overrideBillNo?: string) => {
     setPrintStatus("printing");
     try {
+      let effectiveBillNo = overrideBillNo || billNoDisplay;
+      if (!effectiveBillNo || effectiveBillNo === "Bill No - 01") {
+        if (sale.monthly_bill_number != null) {
+          effectiveBillNo = formatMonthlyBillNumber(sale.monthly_bill_number);
+        } else {
+          effectiveBillNo = await getMonthlyBillNumberForSale(
+            sale.sale_date || new Date(),
+            sale.id,
+            sale.sale_number,
+          );
+          setBillNoDisplay(effectiveBillNo);
+        }
+      }
+
       const iframe = document.createElement("iframe");
       iframe.style.cssText =
         "position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;visibility:hidden;";
@@ -556,7 +717,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
       iframe.onload = waitAndPrint;
 
       doc.open();
-      doc.write(buildA4HTML(sale, items, storeSettings));
+      doc.write(buildA4HTML(sale, items, storeSettings, effectiveBillNo));
       doc.close();
 
       if (doc.readyState === "complete") {
@@ -601,8 +762,8 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
         {/* ── Modal Header ── */}
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
-            <h2 className="text-base font-bold text-foreground">A4 Invoice</h2>
-            <p className="text-xs text-muted-foreground">{sale.sale_number}</p>
+            <h2 className="text-base font-bold text-foreground">A4 Tax Invoice</h2>
+            <p className="text-xs font-bold text-foreground">{billNoDisplay}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -634,7 +795,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
             <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
               <span>{printFailedReason || "Print dialog closed or canceled."}</span>
               <button
-                onClick={doSystemPrintFallback}
+                onClick={() => doSystemPrintFallback()}
                 className="font-bold underline text-amber-900 cursor-pointer ml-2 shrink-0"
               >
                 Retry Print
@@ -645,8 +806,12 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
           {/* Sale summary */}
           <div className="rounded-xl bg-muted/40 border border-border p-4 space-y-1.5 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Invoice #</span>
-              <span className="font-bold">{sale.sale_number}</span>
+              <span className="text-muted-foreground">Bill No</span>
+              <span className="font-extrabold text-foreground">{billNoDisplay}</span>
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Reference No</span>
+              <span>{sale.sale_number}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Customer</span>

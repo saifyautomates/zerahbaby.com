@@ -2253,7 +2253,36 @@ export function OfflineAnalyticsTab() {
         return (
           <A4Invoice
             sale={{
+              id: a4InvoiceSale.id,
               sale_number: a4InvoiceSale.sale_number,
+              monthly_bill_number: (() => {
+                const targetDate = new Date(a4InvoiceSale.created_at);
+                const targetYM = targetDate.toLocaleDateString("en-CA", {
+                  timeZone: "Asia/Kolkata",
+                  year: "numeric",
+                  month: "2-digit",
+                });
+                const monthSales = (sales ?? [])
+                  .filter((s: any) => {
+                    const d = new Date(s.created_at);
+                    return (
+                      d.toLocaleDateString("en-CA", {
+                        timeZone: "Asia/Kolkata",
+                        year: "numeric",
+                        month: "2-digit",
+                      }) === targetYM
+                    );
+                  })
+                  .sort(
+                    (a: any, b: any) =>
+                      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+                  );
+                const idx = monthSales.findIndex(
+                  (s: any) =>
+                    s.id === a4InvoiceSale.id || s.sale_number === a4InvoiceSale.sale_number,
+                );
+                return idx !== -1 ? idx + 1 : 1;
+              })(),
               customer_name: a4InvoiceSale.customer_name || "Walk-in Customer",
               customer_phone: a4InvoiceSale.customer_phone,
               customer_email: a4InvoiceSale.customer_email || undefined,
