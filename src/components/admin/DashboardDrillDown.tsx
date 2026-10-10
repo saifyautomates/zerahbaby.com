@@ -103,6 +103,10 @@ export interface DrillDownPOSSale {
   created_at: string;
   status?: string;
   return_status?: string | null;
+  payment_status?: string | null;
+  amount_paid?: number | null;
+  store_credit_used?: number | null;
+  is_voided?: boolean | null;
   total?: number;
   customer_name?: string;
   customer_phone?: string;
@@ -1407,47 +1411,94 @@ export function DashboardDrillDown({
     }
 
     if (type === "cash") {
-      const pendingCodOrders = orders.filter(
-        (o) =>
-          o.status !== "cancelled" &&
-          o.payment_status !== "paid" &&
-          (o.payment_method === "cod" || o.payment_status === "pending"),
-      );
+      const pendingCodOrders = orders.filter((order) => {
+        const paymentStatus = String(order.payment_status || "").toLowerCase().trim();
+        const paymentMethod = String(order.payment_method || "").toLowerCase().trim();
+        return (
+          order.status !== "cancelled" &&
+          paymentStatus !== "paid" &&
+          (paymentMethod === "cod" || ["pending", "partial", "partially_paid"].includes(paymentStatus))
+        );
+      });
+
+      const pendingPosDues = posSales
+        .filter((sale) => {
+          const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+          const returnStatus = String(sale.return_status || "").toLowerCase().trim();
+          if (sale.is_voided || ["cancelled", "voided", "failed", "sync_failed"].includes(String(sale.status || "").toLowerCase().trim())) {
+            return false;
+          }
+          if (!["pending", "unpaid", "partial", "partially_paid", "due"].includes(paymentStatus)) {
+            return false;
+          }
+          if (["returned", "fully_returned", "completed"].includes(returnStatus)) return false;
+          const due = Number(sale.total || 0) -
+            Number(sale.amount_paid || 0) -
+            Number(sale.store_credit_used || 0);
+          return due > 0;
+        })
+        .map((sale) => ({
+          ...sale,
+          balance_due: Math.max(
+            0,
+            Number(sale.total || 0) -
+              Number(sale.amount_paid || 0) -
+              Number(sale.store_credit_used || 0),
+          ),
+        }));
 
       return {
-        title: "Cash Outstanding (Pending COD)",
+        title: "Cash Outstanding (COD & POS Due)",
         icon: DollarSign,
         colorClass: "text-rose-600 bg-rose-50",
         renderContent: () => (
           <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+            <table className="w-full min-w-[680px] text-left text-sm text-muted-foreground">
               <thead className="bg-muted text-xs uppercase text-foreground">
                 <tr>
                   <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Order ID</th>
+                  <th className="px-6 py-3">Order / Sale ID</th>
                   <th className="px-6 py-3">Customer Details</th>
+                  <th className="px-6 py-3">Source</th>
                   <th className="px-6 py-3 text-right">Pending Amount</th>
                 </tr>
               </thead>
               <tbody>
-                {pendingCodOrders.map((o, i) => (
-                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                {pendingCodOrders.map((o) => (
+                  <tr key={`order-${o.id}`} className="border-b bg-background hover:bg-muted/50">
                     <td className="px-6 py-4">{format(new Date(o.created_at), "MMM d, yyyy")}</td>
                     <td className="px-6 py-4 font-medium text-foreground">
-                      #{o.id.substring(0, 8).toUpperCase()}
+                      #{(o.id || "").substring(0, 8).toUpperCase()}
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-medium text-foreground">{o.full_name || o.email}</p>
-                      <p className="text-xs">{o.phone}</p>
+                      <p className="font-medium text-foreground">{o.full_name || o.email || "Customer"}</p>
+                      <p className="text-xs">{o.phone || ""}</p>
                     </td>
+                    <td className="px-6 py-4">Online COD</td>
                     <td className="px-6 py-4 text-right font-bold text-rose-600">
                       {formatPrice(o.total || 0)}
                     </td>
                   </tr>
                 ))}
-                {pendingCodOrders.length === 0 && (
+                {pendingPosDues.map((sale) => (
+                  <tr key={`pos-${sale.id}`} className="border-b bg-background hover:bg-muted/50">
+                    <td className="px-6 py-4">{format(new Date(sale.created_at), "MMM d, yyyy")}</td>
+                    <td className="px-6 py-4 font-medium text-foreground">
+                      {sale.sale_number || `#${sale.id.substring(0, 8).toUpperCase()}`}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="font-medium text-foreground">{sale.customer_name || "Walk-in Customer"}</p>
+                      <p className="text-xs">{sale.customer_phone || ""}</p>
+                    </td>
+                    <td className="px-6 py-4">Offline POS</td>
+                    <td className="px-6 py-4 text-right font-bold text-rose-600">
+                      {formatPrice(sale.balance_due)}
+                    </td>
+                  </tr>
+                ))}
+                {pendingCodOrders.length === 0 && pendingPosDues.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center">
+                    <td colSpan={5} className="px-6 py-8 text-center">
                       No pending cash outstanding.
                     </td>
                   </tr>
