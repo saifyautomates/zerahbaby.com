@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Suspense } from "react";
 import { safeLazy, isChunkLoadError } from "@/lib/safe-lazy";
 import { useSession, useIsAdmin } from "@/lib/auth";
+import { initGlobalDeviceSessionMonitor } from "@/lib/device-session";
 
 const GlobalRealtimeSyncHost = safeLazy(() =>
   import("@/lib/realtime-sync").then((m) => ({ default: m.GlobalRealtimeSyncHost })),
@@ -380,6 +381,12 @@ function RootComponent() {
       applyTheme(getInitialTheme());
     }
   }, [isAdminRoute]);
+
+  useEffect(() => {
+    // Initialize active device session monitoring and instant remote logout listener
+    const cleanup = initGlobalDeviceSessionMonitor();
+    return cleanup;
+  }, []);
 
   useEffect(() => {
     // Visitor Analytics Tracking (only on production domain, never on localhost/development)

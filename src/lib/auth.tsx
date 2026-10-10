@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Session, User, AuthChangeEvent } from "@supabase/gotrue-js";
 import { supabase } from "@/integrations/supabase/client";
+import { syncDeviceSession } from "@/lib/device-session";
 
 let globalSession: Session | null = null;
 let globalInitialized = false;
@@ -11,6 +12,9 @@ const authSubscribers = new Set<(session: Session | null, initialized: boolean) 
 function notifyAuthSubscribers(s: Session | null, init: boolean) {
   globalSession = s;
   globalInitialized = init;
+  if (s?.user) {
+    syncDeviceSession(s.user);
+  }
   authSubscribers.forEach((cb) => {
     try {
       cb(s, init);
@@ -24,6 +28,9 @@ function notifyAuthSubscribers(s: Session | null, init: boolean) {
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange((_event: AuthChangeEvent, newSession: Session | null) => {
     notifyAuthSubscribers(newSession, true);
+    if (newSession?.user) {
+      syncDeviceSession(newSession.user);
+    }
   });
 
   globalInitPromise = supabase.auth
@@ -31,6 +38,9 @@ if (typeof window !== "undefined") {
     .then(({ data }: { data: { session: Session | null } }) => {
       const s = data.session ?? null;
       notifyAuthSubscribers(s, true);
+      if (s?.user) {
+        syncDeviceSession(s.user);
+      }
       return s;
     })
     .catch(() => {

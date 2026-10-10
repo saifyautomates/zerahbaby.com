@@ -140,6 +140,9 @@ const OnlineSalesTab = safeLazy(() =>
 const OnlineReturnsTab = safeLazy(() =>
   import("@/components/admin/OnlineReturnsTab").then((m) => ({ default: m.OnlineReturnsTab })),
 );
+const UserSessionsManager = safeLazy(() =>
+  import("@/components/admin/UserSessionsManager").then((m) => ({ default: m.UserSessionsManager })),
+);
 const HomepageSectionsTab = safeLazy(() =>
   import("@/components/admin/HomepageSectionsTab").then((m) => ({
     default: m.HomepageSectionsTab,
@@ -3677,6 +3680,13 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
         </table>
       </div>
       {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
+
+      {/* Active Admin Device Logins & Geolocation Tracking */}
+      <div className="pt-6 border-t border-border">
+        <Suspense fallback={<div className="p-4 text-xs text-muted-foreground animate-pulse">Loading active admin sessions…</div>}>
+          <UserSessionsManager defaultRole="admin" />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -3685,7 +3695,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
 
 function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
   const qc = useQueryClient();
-  const [activeSection, setActiveSection] = useState<"online" | "offline">("online");
+  const [activeSection, setActiveSection] = useState<"online" | "offline" | "sessions">("online");
   const { data: customers, isLoading } = useCustomers(true);
   const { data: orders } = useAllOrders(true);
   const [search, setSearch] = useState("");
@@ -3827,6 +3837,19 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
               {offlineStats.count}
             </span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("sessions")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+              activeSection === "sessions"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Shield className="size-4" />
+            <span>Active Logged-in Devices</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-4 px-3 text-xs text-muted-foreground">
@@ -3849,6 +3872,16 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
           }
         >
           <CustomerHistoryPanel />
+        </Suspense>
+      ) : activeSection === "sessions" ? (
+        <Suspense
+          fallback={
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              Loading active customer device sessions…
+            </div>
+          }
+        >
+          <UserSessionsManager defaultRole="customer" />
         </Suspense>
       ) : (
         <div className="space-y-4">
