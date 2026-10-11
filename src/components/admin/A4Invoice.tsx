@@ -499,9 +499,10 @@ export function buildA4HTML(
 
   // Distinct rate for column header
   const distinctRates = Array.from(new Set(computedItems.filter((c) => c.gstRate > 0).map((c) => c.gstRate)));
-  const singleRate = distinctRates.length === 1 ? distinctRates[0] : 5;
-  const cgstRateLabel = `${(singleRate / 2).toFixed(1).replace(/\.0$/, "")}%`;
-  const sgstRateLabel = `${(singleRate / 2).toFixed(1).replace(/\.0$/, "")}%`;
+  const hasMultipleRates = distinctRates.length > 1;
+  const singleRate = distinctRates.length === 1 ? distinctRates[0] : null;
+  const cgstRateHeader = singleRate != null ? `CGST<br/>${(singleRate / 2).toFixed(1).replace(/\.0$/, "")}% (₹)` : `CGST<br/>(₹)`;
+  const sgstRateHeader = singleRate != null ? `SGST<br/>${(singleRate / 2).toFixed(1).replace(/\.0$/, "")}% (₹)` : `SGST<br/>(₹)`;
 
   const itemRows = computedItems
     .map((calc, idx) => {
@@ -527,8 +528,8 @@ export function buildA4HTML(
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineMrp.toFixed(2)}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineTaxable.toFixed(2)}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${calc.lineCgst > 0 ? "₹" + calc.lineCgst.toFixed(2) : "—"}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${calc.lineSgst > 0 ? "₹" + calc.lineSgst.toFixed(2) : "—"}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${calc.lineCgst > 0 ? `<div>₹${calc.lineCgst.toFixed(2)}</div>${hasMultipleRates ? `<div style="font-size: 9px; color: #4b5563; margin-top: 1px;">(${(calc.gstRate / 2).toFixed(1).replace(/\.0$/, "")}%)</div>` : ""}` : "—"}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${calc.lineSgst > 0 ? `<div>₹${calc.lineSgst.toFixed(2)}</div>${hasMultipleRates ? `<div style="font-size: 9px; color: #4b5563; margin-top: 1px;">(${(calc.gstRate / 2).toFixed(1).replace(/\.0$/, "")}%)</div>` : ""}` : "—"}</td>
       <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${calc.lineFinal.toFixed(2)}</td>
     </tr>`;
       }
@@ -674,8 +675,8 @@ ${
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 75px; line-height: 1.2;">MRP<br/>(₹)</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 70px; line-height: 1.2;">Discount<br/>%</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px; line-height: 1.2;">Taxable Amount<br/>(₹)</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 62px; line-height: 1.2;">CGST<br/>${cgstRateLabel} (₹)</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 62px; line-height: 1.2;">SGST<br/>${sgstRateLabel} (₹)</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 62px; line-height: 1.2;">${cgstRateHeader}</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 62px; line-height: 1.2;">${sgstRateHeader}</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px; line-height: 1.2;">Final Amount<br/>(₹)</th>
     </tr>`
         : `<tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
