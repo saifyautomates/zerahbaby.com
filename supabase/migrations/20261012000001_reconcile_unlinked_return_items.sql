@@ -97,12 +97,12 @@ BEGIN
       WHEN NOT EXISTS (
         SELECT 1 FROM public.offline_sale_items osi
         WHERE osi.sale_id = s.id
-          AND COALESCE(osi.returnable_qty, osi.quantity_returnable, 1) > 0
+          AND COALESCE(osi.quantity_returnable, osi.returnable_qty, 1) > 0
       ) THEN 'fully_returned'
       WHEN EXISTS (
         SELECT 1 FROM public.offline_sale_items osi
         WHERE osi.sale_id = s.id
-          AND COALESCE(osi.already_returned_qty, osi.quantity_returned, 0) > 0
+          AND COALESCE(osi.quantity_returned, osi.returned_quantity, 0) > 0
       ) THEN 'partially_returned'
       ELSE s.return_status
     END,
