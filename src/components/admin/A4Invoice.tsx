@@ -358,6 +358,17 @@ export function buildA4HTML(
 
   const orderDiscount = (sale.discount || 0) + (sale.coupon_discount || 0);
 
+  // Detect if ANY item has explicit GST or HSN entered
+  const hasAnyGst = items.some((item) => {
+    const hasRate =
+      item.gst_rate != null &&
+      !isNaN(Number(item.gst_rate)) &&
+      Number(item.gst_rate) > 0;
+    const hsn = item.hsn_code ? String(item.hsn_code).trim() : "";
+    const hasHsn = hsn !== "" && hsn !== "-" && hsn !== "—";
+    return hasRate || hasHsn;
+  });
+
   // 1. Raw item values
   const rawItems = items.map((item) => {
     const qty = Math.max(1, item.qty || 1);
@@ -413,14 +424,25 @@ export function buildA4HTML(
         ? Math.round(((lineDiscount / lineMrp) * 100) * 100) / 100
         : 0;
 
-    const gstRate =
-      r.item.gst_rate != null && !isNaN(Number(r.item.gst_rate)) && Number(r.item.gst_rate) > 0
-        ? Number(r.item.gst_rate)
-        : 5;
-    const hsn = r.item.hsn_code ? String(r.item.hsn_code).trim() : "6111";
+    const itemHasRate =
+      r.item.gst_rate != null &&
+      !isNaN(Number(r.item.gst_rate)) &&
+      Number(r.item.gst_rate) > 0;
+    const itemHsn = r.item.hsn_code ? String(r.item.hsn_code).trim() : "";
+    const itemHasHsn = itemHsn !== "" && itemHsn !== "-" && itemHsn !== "—";
 
-    // Indian retail inclusive GST: Taxable = Final / (1 + Rate / 100)
-    const lineTaxable = Math.round((lineFinal / (1 + gstRate / 100)) * 100) / 100;
+    const gstRate = itemHasRate
+      ? Number(r.item.gst_rate)
+      : itemHasHsn
+        ? 5
+        : 0;
+    const hsn = itemHasHsn ? itemHsn : itemHasRate ? "6111" : "-";
+
+    // Inclusive GST: Taxable = Final / (1 + Rate / 100)
+    const lineTaxable =
+      gstRate > 0
+        ? Math.round((lineFinal / (1 + gstRate / 100)) * 100) / 100
+        : lineFinal;
     const lineTotalTax = Math.round((lineFinal - lineTaxable) * 100) / 100;
     const lineCgst = Math.round((lineTotalTax / 2) * 100) / 100;
     const lineSgst = Math.round((lineTotalTax - lineCgst) * 100) / 100;
@@ -428,7 +450,7 @@ export function buildA4HTML(
     return {
       name: r.item.name,
       sku: r.item.sku,
-      hsn: hsn || "6111",
+      hsn,
       qty: r.qty,
       lineMrp,
       lineDiscount,
@@ -438,6 +460,7 @@ export function buildA4HTML(
       lineSgst,
       lineFinal,
       gstRate,
+      hasItemGst: gstRate > 0 || itemHasHsn,
     };
   });
 
@@ -453,10 +476,16 @@ export function buildA4HTML(
         last.lineMrp > 0 && last.lineDiscount > 0
           ? Math.round(((last.lineDiscount / last.lineMrp) * 100) * 100) / 100
           : 0;
-      last.lineTaxable = Math.round((last.lineFinal / (1 + last.gstRate / 100)) * 100) / 100;
-      const lastTotalTax = Math.round((last.lineFinal - last.lineTaxable) * 100) / 100;
-      last.lineCgst = Math.round((lastTotalTax / 2) * 100) / 100;
-      last.lineSgst = Math.round((lastTotalTax - last.lineCgst) * 100) / 100;
+      if (last.gstRate > 0) {
+        last.lineTaxable = Math.round((last.lineFinal / (1 + last.gstRate / 100)) * 100) / 100;
+        const lastTotalTax = Math.round((last.lineFinal - last.lineTaxable) * 100) / 100;
+        last.lineCgst = Math.round((lastTotalTax / 2) * 100) / 100;
+        last.lineSgst = Math.round((lastTotalTax - last.lineCgst) * 100) / 100;
+      } else {
+        last.lineTaxable = last.lineFinal;
+        last.lineCgst = 0;
+        last.lineSgst = 0;
+      }
     }
   }
 
@@ -469,7 +498,7 @@ export function buildA4HTML(
   const totalQty = computedItems.reduce((acc, c) => acc + c.qty, 0);
 
   // Distinct rate for column header
-  const distinctRates = Array.from(new Set(computedItems.map((c) => c.gstRate)));
+  const distinctRates = Array.from(new Set(computedItems.filter((c) => c.gstRate > 0).map((c) => c.gstRate)));
   const singleRate = distinctRates.length === 1 ? distinctRates[0] : 5;
   const cgstRateLabel = `${(singleRate / 2).toFixed(1).replace(/\.0$/, "")}%`;
   const sgstRateLabel = `${(singleRate / 2).toFixed(1).replace(/\.0$/, "")}%`;
@@ -485,7 +514,8 @@ export function buildA4HTML(
         `;
       }
 
-      return `
+      if (hasAnyGst) {
+        return `
     <tr style="vertical-align: middle; page-break-inside: avoid; border-bottom: 1px solid #f1f5f9;">
       <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
       <td style="padding: 10px 6px; text-align: left;">
@@ -497,8 +527,22 @@ export function buildA4HTML(
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineMrp.toFixed(2)}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineTaxable.toFixed(2)}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineCgst.toFixed(2)}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineSgst.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${calc.lineCgst > 0 ? "₹" + calc.lineCgst.toFixed(2) : "—"}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${calc.lineSgst > 0 ? "₹" + calc.lineSgst.toFixed(2) : "—"}</td>
+      <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${calc.lineFinal.toFixed(2)}</td>
+    </tr>`;
+      }
+
+      return `
+    <tr style="vertical-align: middle; page-break-inside: avoid; border-bottom: 1px solid #f1f5f9;">
+      <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
+      <td style="padding: 10px 6px; text-align: left;">
+        <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(calc.name)}</div>
+        ${skuText ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 2px;">${skuText}</div>` : ""}
+      </td>
+      <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${calc.qty}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineMrp.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${calc.lineFinal.toFixed(2)}</td>
     </tr>`;
     })
@@ -576,7 +620,7 @@ export function buildA4HTML(
 <!-- ── INVOICE META ── -->
 <div style="margin: 14px 0 16px 0;">
   <div style="color: #000; font-size: 26px; font-weight: 900; letter-spacing: -0.3px; line-height: 1.1;">TAX INVOICE</div>
-  <div style="color: #000; font-size: 15px; font-weight: 800; margin-top: 5px;">GST NO. - ${escapeHtml(storeGstin)}</div>
+  ${hasAnyGst ? `<div style="color: #000; font-size: 15px; font-weight: 800; margin-top: 5px;">GST NO. - ${escapeHtml(storeGstin)}</div>` : ""}
   <div style="color: #000; font-size: 17px; font-weight: 800; margin-top: 6px;">${escapeHtml(billNoDisplay)}</div>
   <div style="color: #000; font-size: 12px; margin-top: 6px;">${dateStr}</div>
   <div style="color: #000; font-size: 12px; margin-top: 2px;">${timeStr}</div>
@@ -620,7 +664,9 @@ ${
 <!-- ── ITEMS TABLE ── -->
 <table>
   <thead>
-    <tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
+    ${
+      hasAnyGst
+        ? `<tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
       <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 30px;">#</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 50px;">HSN</th>
@@ -631,11 +677,22 @@ ${
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 62px; line-height: 1.2;">CGST<br/>${cgstRateLabel} (₹)</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 62px; line-height: 1.2;">SGST<br/>${sgstRateLabel} (₹)</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px; line-height: 1.2;">Final Amount<br/>(₹)</th>
-    </tr>
+    </tr>`
+        : `<tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
+      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 32px;">#</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 44px;">QTY</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 95px; line-height: 1.2;">MRP<br/>(₹)</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px; line-height: 1.2;">Discount<br/>%</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 95px; line-height: 1.2;">Final Amount<br/>(₹)</th>
+    </tr>`
+    }
   </thead>
   <tbody>
     ${itemRows}
-    <tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
+    ${
+      hasAnyGst
+        ? `<tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
       <td colspan="4" style="padding: 10px 6px; text-align: right; font-size: 12.5px; font-weight: 900; letter-spacing: 0.3px; color: #000;">
         TOTAL (${totalQty} ${totalQty === 1 ? "ITEM" : "ITEMS"})
       </td>
@@ -657,7 +714,22 @@ ${
       <td style="padding: 10px 6px; text-align: right; font-size: 12.5px; font-weight: 900; color: #000;">
         ₹${totalFinal.toFixed(2)}
       </td>
-    </tr>
+    </tr>`
+        : `<tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
+      <td colspan="3" style="padding: 10px 6px; text-align: right; font-size: 12.5px; font-weight: 900; letter-spacing: 0.3px; color: #000;">
+        TOTAL (${totalQty} ${totalQty === 1 ? "ITEM" : "ITEMS"})
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ₹${totalMrp.toFixed(2)}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ${totalDiscount > 0 ? `- ₹${totalDiscount.toFixed(2)}` : "—"}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12.5px; font-weight: 900; color: #000;">
+        ₹${totalFinal.toFixed(2)}
+      </td>
+    </tr>`
+    }
   </tbody>
 </table>
 
