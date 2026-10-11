@@ -154,19 +154,38 @@ export async function getMonthlyBillNumberForSale(
   saleId?: string | null,
   saleNumber?: string | null,
 ): Promise<string> {
+  const date = saleDate instanceof Date ? saleDate : new Date(saleDate);
+  const safeDate = isNaN(date.getTime()) ? new Date() : date;
+
+  const istFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+  });
+  const [year, month] = istFmt.format(safeDate).split("-");
+  const yearNum = parseInt(year, 10);
+  const monthNum = parseInt(month, 10);
+
+  const cacheKey = `zerah_monthly_bills_${year}_${month}`;
+  let cache: { map: Record<string, string>; highest: number } = { map: {}, highest: 0 };
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const stored = localStorage.getItem(cacheKey);
+      if (stored) cache = JSON.parse(stored);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Fast path: if already locked in cache for this saleId or saleNumber, return immediately
+  if (saleId && cache.map[saleId]) {
+    return cache.map[saleId];
+  }
+  if (saleNumber && cache.map[saleNumber]) {
+    return cache.map[saleNumber];
+  }
+
   try {
-    const date = saleDate instanceof Date ? saleDate : new Date(saleDate);
-    const safeDate = isNaN(date.getTime()) ? new Date() : date;
-
-    const istFmt = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "2-digit",
-    });
-    const [year, month] = istFmt.format(safeDate).split("-");
-    const yearNum = parseInt(year, 10);
-    const monthNum = parseInt(month, 10);
-
     const startOfMonthIST = `${year}-${month}-01T00:00:00+05:30`;
     const nextMonthNum = monthNum === 12 ? 1 : monthNum + 1;
     const nextYearNum = monthNum === 12 ? yearNum + 1 : yearNum;
@@ -181,22 +200,66 @@ export async function getMonthlyBillNumberForSale(
       .order("created_at", { ascending: true })
       .order("id", { ascending: true });
 
-    if (error || !monthSales || monthSales.length === 0) {
-      return "Bill No - 01";
+    if (!error && monthSales && monthSales.length > 0) {
+      // Sync and lock all month sales into persistent local storage map
+      monthSales.forEach((s, idx) => {
+        const formatted = formatMonthlyBillNumber(idx + 1);
+        if (s.id) cache.map[s.id] = formatted;
+        if (s.sale_number) cache.map[s.sale_number] = formatted;
+      });
+      cache.highest = Math.max(cache.highest || 0, monthSales.length);
+
+      if (typeof window !== "undefined" && window.localStorage) {
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(cache));
+        } catch {
+          /* ignore */
+        }
+      }
+
+      let matchIdx = -1;
+      if (saleId) {
+        matchIdx = monthSales.findIndex((s) => s.id === saleId);
+      }
+      if (matchIdx === -1 && saleNumber) {
+        matchIdx = monthSales.findIndex((s) => s.sale_number === saleNumber);
+      }
+
+      const billNum = matchIdx !== -1 ? matchIdx + 1 : monthSales.length;
+      return formatMonthlyBillNumber(billNum);
     }
 
-    let matchIdx = -1;
-    if (saleId) {
-      matchIdx = monthSales.findIndex((s) => s.id === saleId);
-    }
-    if (matchIdx === -1 && saleNumber) {
-      matchIdx = monthSales.findIndex((s) => s.sale_number === saleNumber);
+    // Network offline or query returned 0 rows:
+    // Safely increment local counter so offline bills never reset to "Bill No - 01"
+    const nextNum = (cache.highest || 0) + 1;
+    const nextFormatted = formatMonthlyBillNumber(nextNum);
+    cache.highest = nextNum;
+    if (saleId) cache.map[saleId] = nextFormatted;
+    if (saleNumber) cache.map[saleNumber] = nextFormatted;
+
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(cache));
+      } catch {
+        /* ignore */
+      }
     }
 
-    const billNum = matchIdx !== -1 ? matchIdx + 1 : monthSales.length;
-    return formatMonthlyBillNumber(billNum);
+    return nextFormatted;
   } catch {
-    return "Bill No - 01";
+    const nextNum = (cache.highest || 0) + 1;
+    const nextFormatted = formatMonthlyBillNumber(nextNum);
+    cache.highest = nextNum;
+    if (saleId) cache.map[saleId] = nextFormatted;
+    if (saleNumber) cache.map[saleNumber] = nextFormatted;
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(cache));
+      } catch {
+        /* ignore */
+      }
+    }
+    return nextFormatted;
   }
 }
 
@@ -441,6 +504,11 @@ export function buildA4HTML(
     })
     .join("");
 
+  const fontSrc =
+    typeof window !== "undefined" && window.location
+      ? `${window.location.origin}/fonts/caveat-bold.woff2`
+      : "/fonts/caveat-bold.woff2";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -450,6 +518,14 @@ export function buildA4HTML(
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap" rel="stylesheet">
 <style>
+  @font-face {
+    font-family: 'Caveat';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('${fontSrc}') format('woff2'),
+         url('https://fonts.gstatic.com/s/caveat/v23/WnznHAc5bAfYB2QRah7pcpNvOx-pjRV6eIWpYQ.woff2') format('woff2');
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   @page {
     size: A4 portrait;
