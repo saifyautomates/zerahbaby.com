@@ -638,6 +638,21 @@ export function POSReturnsTab() {
       setDiscoveryMode("barcode");
       setProductScanQuery(parsed.value);
 
+      // Priority 1: If an original sale is already selected, prioritize matching returnable items in that sale!
+      if (originalSaleId) {
+        const currentSale = pastSalesWithMetrics.find((s) => s.id === originalSaleId);
+        if (currentSale) {
+          const item = currentSale.offline_sale_items.find(
+            (it) =>
+              (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
+          );
+          if (item) {
+            handleSelectHistoricalItemForReturn(currentSale, item);
+            return;
+          }
+        }
+      }
+
       // If customer is selected and has bought this item with returnable quantity, select from history
       if (customerMode === "existing" && customerPhone) {
         const custClean = customerPhone.replace(/\D/g, "");
@@ -684,6 +699,7 @@ export function POSReturnsTab() {
       await handleDirectCatalogProductReturn(parsed.value);
     },
     [
+      originalSaleId,
       customerMode,
       customerPhone,
       pastSalesWithMetrics,

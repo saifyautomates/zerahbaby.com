@@ -505,19 +505,37 @@ export function useOfflineSalesForReturnsLookup() {
       // 2. Fetch all return items to calculate already returned quantities
       const { data: rawReturnItems } = await (supabase as any)
         .from("offline_return_items")
-        .select("id, return_id, product_id, sku, barcode, qty, original_sale_item_id");
+        .select("id, return_id, product_id, sku, barcode, qty, original_sale_item_id, offline_returns(original_sale_id, original_sale_number)");
 
       // Map: original_sale_item_id -> total returned qty
       const returnedQtyByItemId = new Map<string, number>();
+      // Fallback Map: `${saleKey}_${itemKey}` -> total returned qty
+      const returnedQtyBySaleAndSku = new Map<string, number>();
 
-      ((rawReturnItems || []) as Array<{ original_sale_item_id?: string; qty?: number }>).forEach(
-        (ri) => {
-          if (ri.original_sale_item_id) {
-            const prev = returnedQtyByItemId.get(ri.original_sale_item_id) || 0;
-            returnedQtyByItemId.set(ri.original_sale_item_id, prev + (Number(ri.qty) || 1));
+      ((rawReturnItems || []) as any[]).forEach((ri) => {
+        const qty = Number(ri.qty) || 1;
+        if (ri.original_sale_item_id) {
+          const prev = returnedQtyByItemId.get(ri.original_sale_item_id) || 0;
+          returnedQtyByItemId.set(ri.original_sale_item_id, prev + qty);
+        }
+
+        // Also index by sale identifier + item SKU/barcode for defensive matching
+        const saleRef = ri.offline_returns?.original_sale_id || ri.offline_returns?.original_sale_number;
+        if (saleRef) {
+          if (ri.sku) {
+            const k = `${saleRef}_sku_${ri.sku}`.toLowerCase();
+            returnedQtyBySaleAndSku.set(k, (returnedQtyBySaleAndSku.get(k) || 0) + qty);
           }
-        },
-      );
+          if (ri.barcode) {
+            const k = `${saleRef}_barcode_${ri.barcode}`.toLowerCase();
+            returnedQtyBySaleAndSku.set(k, (returnedQtyBySaleAndSku.get(k) || 0) + qty);
+          }
+          if (ri.product_id) {
+            const k = `${saleRef}_prod_${ri.product_id}`.toLowerCase();
+            returnedQtyBySaleAndSku.set(k, (returnedQtyBySaleAndSku.get(k) || 0) + qty);
+          }
+        }
+      });
 
       // Filter out voided/cancelled sales defensively in memory
       const validSales = (rawSales as any[]).filter(
@@ -539,8 +557,20 @@ export function useOfflineSalesForReturnsLookup() {
             totalItemsCount += itemQty;
 
             // DB is now authoritative for quantity_returned — use it directly
-            // Fall back to returnedQtyByItemId join for pre-migration rows
-            const alreadyReturned = returnedQtyByItemId.get(it.id) || 0;
+            // Fall back to returnedQtyByItemId join or sale+SKU fallback for pre-migration/unlinked rows
+            const matchedBySaleSku =
+              (it.sku ? returnedQtyBySaleAndSku.get(`${s.id}_sku_${it.sku}`.toLowerCase()) : 0) ||
+              (it.barcode ? returnedQtyBySaleAndSku.get(`${s.id}_barcode_${it.barcode}`.toLowerCase()) : 0) ||
+              (it.product_id ? returnedQtyBySaleAndSku.get(`${s.id}_prod_${it.product_id}`.toLowerCase()) : 0) ||
+              (it.sku ? returnedQtyBySaleAndSku.get(`${s.sale_number}_sku_${it.sku}`.toLowerCase()) : 0) ||
+              (it.barcode ? returnedQtyBySaleAndSku.get(`${s.sale_number}_barcode_${it.barcode}`.toLowerCase()) : 0) ||
+              (it.product_id ? returnedQtyBySaleAndSku.get(`${s.sale_number}_prod_${it.product_id}`.toLowerCase()) : 0) ||
+              0;
+
+            const alreadyReturned = Math.max(
+              returnedQtyByItemId.get(it.id) || 0,
+              matchedBySaleSku,
+            );
 
             // Historical pricing snapshot — prefer DB columns, fall back to price
             const dbFinalUnitPaid = Number(it.final_unit_paid_price) || 0;
