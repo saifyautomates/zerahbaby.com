@@ -84,15 +84,15 @@ type Props = {
 /*  Store Info (matches site_settings defaults)                        */
 /* ------------------------------------------------------------------ */
 const STORE = {
-  name: "ZÉRAH BABY & KIDS",
+  name: "ZÉRAH BABY & KIDS STORE",
   tagline: "Premium Children's Clothing",
   address:
-    "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar,\nGordhanpura, Kota, Rajasthan 324001",
-  phone: "9057074777 / 9667571712",
+    "80 Feet Link Rd, Near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
+  phone: "9057074777",
   email: "hello@zerahkids.com",
   website: "zerahkids.com",
   instagram: "@zerah_kids",
-  gstin: "",
+  gstin: "08DLFPB2726D1ZK",
   bank_name: "",
   account_no: "",
   ifsc: "",
@@ -264,9 +264,18 @@ export function buildA4HTML(
 
   // Store information with photo defaults
   const storeAddress =
-    store.storeAddress || "In front of Hanumani Temple, Awal Napsar, Kota, Rajasthan";
-  const storePhone = store.contactPhone || "9070172777";
-  const storeEmail = store.contactEmail || "hello@zerahkids.com";
+    store.storeAddress &&
+    store.storeAddress.trim() !== "In front of Hanumani Temple, Awal Napsar, Kota, Rajasthan" &&
+    store.storeAddress.trim() !== ""
+      ? store.storeAddress
+      : STORE.address;
+  const storePhone = store.contactPhone || STORE.phone;
+  const storeEmail = store.contactEmail || STORE.email;
+  const storeGstin =
+    (store as any).gstin ||
+    (store.settings && (store.settings as Record<string, string>).gstin) ||
+    STORE.gstin ||
+    "08DLFPB2726D1ZK";
   const logoSrc =
     typeof window !== "undefined" && window.location
       ? `${window.location.origin}/logo.png`
@@ -276,6 +285,7 @@ export function buildA4HTML(
     ? sale.payment_method.toUpperCase()
     : "CASH";
 
+  // Pre-calculate items math
   const isSalePercentDiscount =
     sale.discount_type === "percentage" || (sale.discount_type as string) === "percent";
   const overallDiscountPct =
@@ -283,172 +293,153 @@ export function buildA4HTML(
       ? Number(sale.discount_value)
       : 0;
 
-  let totalBasePrice = 0;
-  let totalCgst = 0;
-  let totalSgst = 0;
-  let totalDiscount = 0;
-  let grandTotal = 0;
+  const orderDiscount = (sale.discount || 0) + (sale.coupon_discount || 0);
 
-  const hasAnyHsn = items.some((item) => {
-    const code = item.hsn_code ? String(item.hsn_code).trim() : "";
-    return code !== "" && code !== "-" && code !== "—";
+  // 1. Raw item values
+  const rawItems = items.map((item) => {
+    const qty = Math.max(1, item.qty || 1);
+    const unitPrice = Number(item.price || item.mrp || 0);
+    const unitMrp = Number(item.mrp || item.price || 0);
+    const lineBasePrice = Math.round(unitPrice * qty * 100) / 100;
+    const lineMrp = Math.max(lineBasePrice, Math.round(unitMrp * qty * 100) / 100);
+
+    const itemRecordedDiscount =
+      Number((item as any).allocated_bill_discount || 0) +
+      Number((item as any).allocated_coupon_discount || 0) +
+      Number((item as any).product_discount_amount || 0);
+
+    return {
+      item,
+      qty,
+      unitPrice,
+      unitMrp,
+      lineBasePrice,
+      lineMrp,
+      itemRecordedDiscount,
+    };
   });
 
-  const distinctPositiveGstRates = Array.from(
-    new Set(
-      items
-        .map((i) => {
-          const code = i.hsn_code ? String(i.hsn_code).trim() : "";
-          const hasHsn = code !== "" && code !== "-" && code !== "—";
-          return hasHsn ? (i.gst_rate != null ? Number(i.gst_rate) : 5) : 0;
-        })
-        .filter((r) => r > 0),
-    ),
-  );
-  const gstHeaderSub =
-    distinctPositiveGstRates.length === 1
-      ? `<br/>${distinctPositiveGstRates[0] / 2}%`
-      : "";
+  const sumBasePrice = rawItems.reduce((acc, r) => acc + r.lineBasePrice, 0);
+  const sumRecordedDiscount = rawItems.reduce((acc, r) => acc + r.itemRecordedDiscount, 0);
 
-  const itemRows = items
-    .map((item, idx) => {
-      const qty = Math.max(1, item.qty || 1);
-      const code = item.hsn_code ? String(item.hsn_code).trim() : "";
-      const hasItemHsn = code !== "" && code !== "-" && code !== "—";
-      const hasItemGst =
-        hasItemHsn &&
-        (item.gst_rate != null
-          ? !isNaN(Number(item.gst_rate)) && Number(item.gst_rate) > 0
-          : true);
-      const gstRate = hasItemGst
-        ? (item.gst_rate != null && Number(item.gst_rate) > 0 ? Number(item.gst_rate) : 5)
+  // 2. Computed item values
+  const computedItems = rawItems.map((r) => {
+    let lineFinal: number;
+
+    if (items.length === 1 && sale.total > 0) {
+      lineFinal = sale.total;
+    } else if (sumRecordedDiscount > 0) {
+      lineFinal = Math.max(0, Math.round((r.lineBasePrice - r.itemRecordedDiscount) * 100) / 100);
+    } else if (overallDiscountPct > 0) {
+      const disc = Math.round(((r.lineBasePrice * overallDiscountPct) / 100) * 100) / 100;
+      lineFinal = Math.max(0, Math.round((r.lineBasePrice - disc) * 100) / 100);
+    } else if (orderDiscount > 0) {
+      const itemShare =
+        sumBasePrice > 0
+          ? Math.round((orderDiscount * (r.lineBasePrice / sumBasePrice)) * 100) / 100
+          : Math.round((orderDiscount / items.length) * 100) / 100;
+      lineFinal = Math.max(0, Math.round((r.lineBasePrice - itemShare) * 100) / 100);
+    } else {
+      lineFinal = r.lineBasePrice;
+    }
+
+    const lineMrp = Math.max(lineFinal, r.lineMrp);
+    const lineDiscount = Math.max(0, Math.round((lineMrp - lineFinal) * 100) / 100);
+    const lineDiscountPct =
+      lineMrp > 0 && lineDiscount > 0
+        ? Math.round(((lineDiscount / lineMrp) * 100) * 100) / 100
         : 0;
-      const cgstRate = gstRate / 2;
-      const sgstRate = gstRate / 2;
 
-      // Base unit selling price before sale discount (matches agreed price in transaction)
-      const unitBasePrice = Number(item.price || item.mrp || 0);
-      const lineBasePrice = Math.round(unitBasePrice * qty * 100) / 100;
+    const gstRate =
+      r.item.gst_rate != null && !isNaN(Number(r.item.gst_rate)) && Number(r.item.gst_rate) > 0
+        ? Number(r.item.gst_rate)
+        : 5;
+    const hsn = r.item.hsn_code ? String(r.item.hsn_code).trim() : "6111";
 
-      // Exact item-level discount if recorded on the transaction item
-      const itemRecordedDiscount =
-        Number((item as any).allocated_bill_discount || 0) +
-        Number((item as any).allocated_coupon_discount || 0) +
-        Number((item as any).product_discount_amount || 0);
+    // Indian retail inclusive GST: Taxable = Final / (1 + Rate / 100)
+    const lineTaxable = Math.round((lineFinal / (1 + gstRate / 100)) * 100) / 100;
+    const lineTotalTax = Math.round((lineFinal - lineTaxable) * 100) / 100;
+    const lineCgst = Math.round((lineTotalTax / 2) * 100) / 100;
+    const lineSgst = Math.round((lineTotalTax - lineCgst) * 100) / 100;
 
-      // Proportional sale discount calculation
-      let lineDiscount = 0;
-      if (itemRecordedDiscount > 0) {
-        lineDiscount = Math.round(itemRecordedDiscount * 100) / 100;
-      } else if (overallDiscountPct > 0) {
-        lineDiscount = Math.round(((lineBasePrice * overallDiscountPct) / 100) * 100) / 100;
-      } else if (sale.discount > 0) {
-        if (items.length === 1) {
-          lineDiscount = Math.round(sale.discount * 100) / 100;
-        } else if (sale.subtotal > 0) {
-          lineDiscount = Math.round((sale.discount * (lineBasePrice / sale.subtotal)) * 100) / 100;
-        } else {
-          lineDiscount = Math.round((sale.discount / items.length) * 100) / 100;
-        }
-      }
+    return {
+      name: r.item.name,
+      sku: r.item.sku,
+      hsn: hsn || "6111",
+      qty: r.qty,
+      lineMrp,
+      lineDiscount,
+      lineDiscountPct,
+      lineTaxable,
+      lineCgst,
+      lineSgst,
+      lineFinal,
+      gstRate,
+    };
+  });
 
-      const lineDiscountPct =
-        lineBasePrice > 0 && lineDiscount > 0
-          ? (lineDiscount / lineBasePrice) * 100
+  // Reconcile total rounding with sale.total if closely matching
+  const rawFinalSum = Math.round(computedItems.reduce((acc, c) => acc + c.lineFinal, 0) * 100) / 100;
+  if (sale.total > 0 && Math.abs(rawFinalSum - sale.total) <= 0.05 && computedItems.length > 0) {
+    const diff = Math.round((sale.total - rawFinalSum) * 100) / 100;
+    if (diff !== 0) {
+      const last = computedItems[computedItems.length - 1];
+      last.lineFinal = Math.round((last.lineFinal + diff) * 100) / 100;
+      last.lineDiscount = Math.max(0, Math.round((last.lineMrp - last.lineFinal) * 100) / 100);
+      last.lineDiscountPct =
+        last.lineMrp > 0 && last.lineDiscount > 0
+          ? Math.round(((last.lineDiscount / last.lineMrp) * 100) * 100) / 100
           : 0;
+      last.lineTaxable = Math.round((last.lineFinal / (1 + last.gstRate / 100)) * 100) / 100;
+      const lastTotalTax = Math.round((last.lineFinal - last.lineTaxable) * 100) / 100;
+      last.lineCgst = Math.round((lastTotalTax / 2) * 100) / 100;
+      last.lineSgst = Math.round((lastTotalTax - last.lineCgst) * 100) / 100;
+    }
+  }
 
-      // Net discounted price
-      const lineDiscountedPrice = Math.max(0, Math.round((lineBasePrice - lineDiscount) * 100) / 100);
+  const totalMrp = Math.round(computedItems.reduce((acc, c) => acc + c.lineMrp, 0) * 100) / 100;
+  const totalDiscount = Math.round(computedItems.reduce((acc, c) => acc + c.lineDiscount, 0) * 100) / 100;
+  const totalTaxable = Math.round(computedItems.reduce((acc, c) => acc + c.lineTaxable, 0) * 100) / 100;
+  const totalCgst = Math.round(computedItems.reduce((acc, c) => acc + c.lineCgst, 0) * 100) / 100;
+  const totalSgst = Math.round(computedItems.reduce((acc, c) => acc + c.lineSgst, 0) * 100) / 100;
+  const totalFinal = Math.round(computedItems.reduce((acc, c) => acc + c.lineFinal, 0) * 100) / 100;
+  const totalQty = computedItems.reduce((acc, c) => acc + c.qty, 0);
 
-      // GST is calculated directly on the discounted price (e.g. 2.5% of ₹800.00 = ₹20.00)
-      let lineCgst = 0;
-      let lineSgst = 0;
-      if (hasItemGst && gstRate > 0) {
-        lineCgst = Math.round(lineDiscountedPrice * (cgstRate / 100) * 100) / 100;
-        lineSgst = Math.round(lineDiscountedPrice * (sgstRate / 100) * 100) / 100;
-      }
+  // Distinct rate for column header
+  const distinctRates = Array.from(new Set(computedItems.map((c) => c.gstRate)));
+  const singleRate = distinctRates.length === 1 ? distinctRates[0] : 5;
+  const cgstRateLabel = `${(singleRate / 2).toFixed(1).replace(/\.0$/, "")}%`;
+  const sgstRateLabel = `${(singleRate / 2).toFixed(1).replace(/\.0$/, "")}%`;
 
-      // Net final line amount payable after all discounts (inclusive of GST)
-      const lineTotal = lineDiscountedPrice;
-
-      totalBasePrice += lineBasePrice;
-      totalCgst += lineCgst;
-      totalSgst += lineSgst;
-      totalDiscount += lineDiscount;
-      grandTotal += lineTotal;
-
+  const itemRows = computedItems
+    .map((calc, idx) => {
+      const skuText = calc.sku ? `SKU: ${escapeHtml(calc.sku)}` : "";
       let discountDisplay = "—";
-      if (lineDiscount > 0) {
-        const pctFormatted =
-          lineDiscountPct % 1 === 0
-            ? `${lineDiscountPct}%`
-            : `${lineDiscountPct.toFixed(1).replace(/\.0$/, "")}%`;
+      if (calc.lineDiscount > 0) {
         discountDisplay = `
-          <div style="font-weight: 800; font-size: 11px;">${pctFormatted}</div>
-          <div style="font-weight: 700; font-size: 9.5px; color: #4b5563; white-space: nowrap;">- ₹${lineDiscount.toFixed(2)}</div>
+          <div style="font-size: 11px; color: #000;">${calc.lineDiscountPct.toFixed(2)}%</div>
+          <div style="font-size: 9.5px; color: #000; white-space: nowrap; margin-top: 1px;">- ₹${calc.lineDiscount.toFixed(2)}</div>
         `;
-      }
-
-      const cgstDisplay = lineCgst > 0 ? `₹${lineCgst.toFixed(2)}` : "—";
-      const sgstDisplay = lineSgst > 0 ? `₹${lineSgst.toFixed(2)}` : "—";
-
-      const skuText = item.sku ? `SKU: ${escapeHtml(item.sku)}` : "";
-      const hsnDisplay = hasItemHsn ? escapeHtml(code) : "-";
-
-      if (hasAnyHsn) {
-        return `
-    <tr style="vertical-align: middle; page-break-inside: avoid; border-bottom: 1px solid #f1f5f9;">
-      <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
-      <td style="padding: 10px 6px; text-align: left;">
-        <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(item.name)}</div>
-        ${skuText ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 2px;">${skuText}</div>` : ""}
-      </td>
-      <td style="padding: 10px 6px; text-align: center; font-family: monospace; font-size: 11.5px; color: #000;">${hsnDisplay}</td>
-      <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${qty}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineBasePrice.toFixed(2)}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; font-weight: 800; color: #000;">₹${lineDiscountedPrice.toFixed(2)}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${cgstDisplay}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${sgstDisplay}</td>
-      <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${lineTotal.toFixed(2)}</td>
-    </tr>`;
       }
 
       return `
     <tr style="vertical-align: middle; page-break-inside: avoid; border-bottom: 1px solid #f1f5f9;">
       <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
       <td style="padding: 10px 6px; text-align: left;">
-        <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(item.name)}</div>
+        <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(calc.name)}</div>
         ${skuText ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 2px;">${skuText}</div>` : ""}
       </td>
-      <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${qty}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineBasePrice.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${escapeHtml(calc.hsn)}</td>
+      <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${calc.qty}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineMrp.toFixed(2)}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; font-weight: 800; color: #000;">₹${lineDiscountedPrice.toFixed(2)}</td>
-      <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${lineTotal.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineTaxable.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineCgst.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${calc.lineSgst.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${calc.lineFinal.toFixed(2)}</td>
     </tr>`;
     })
     .join("");
-
-  // Determine overall discount cell for G.TOTAL row
-  const displayTotalDiscount = totalDiscount > 0 ? totalDiscount : (sale.discount > 0 ? sale.discount : 0);
-  const discountedGrandTotal = Math.max(0, Math.round((totalBasePrice - displayTotalDiscount) * 100) / 100);
-  let totalDiscountDisplay = "—";
-  if (displayTotalDiscount > 0) {
-    const gDiscountPct = totalBasePrice > 0 ? (displayTotalDiscount / totalBasePrice) * 100 : 0;
-    const gPctFormatted =
-      gDiscountPct % 1 === 0
-        ? `${gDiscountPct}%`
-        : `${gDiscountPct.toFixed(1).replace(/\.0$/, "")}%`;
-    totalDiscountDisplay = `
-      <div style="font-weight: 800; font-size: 11px;">${gPctFormatted}</div>
-      <div style="font-weight: 700; font-size: 9.5px; color: #4b5563; white-space: nowrap;">- ₹${displayTotalDiscount.toFixed(2)}</div>
-    `;
-  }
-
-  // Fallback to sale.total if closely matching
-  const finalGrandTotal =
-    sale.total > 0 && Math.abs(grandTotal - sale.total) < 1 ? sale.total : grandTotal;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -493,25 +484,26 @@ export function buildA4HTML(
 
 <!-- ── HEADER ── -->
 <div class="header">
-  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 3px;">
-    <img loading="lazy" decoding="async" src="${logoSrc}" alt="ZÉRAH" style="width: 38px; height: 38px; object-fit: contain; border-radius: 50%;" />
+  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px;">
+    <img loading="lazy" decoding="async" src="${logoSrc}" alt="ZÉRAH" style="width: 36px; height: 36px; object-fit: contain; border-radius: 50%;" />
     <span style="font-size: 19px; font-weight: 900; color: #000; letter-spacing: 0.5px; text-transform: uppercase;">ZÉRAH BABY &amp; KIDS STORE</span>
   </div>
-  <div style="font-size: 11px; color: #111; line-height: 1.4;">
+  <div style="font-size: 11px; color: #000; line-height: 1.4;">
     ${escapeHtml(storeAddress)}
   </div>
-  <div style="font-size: 11px; color: #111; line-height: 1.4;">
+  <div style="font-size: 11px; color: #000; line-height: 1.4;">
     Ph: ${escapeHtml(storePhone)} | ${escapeHtml(storeEmail)}
   </div>
-  <div style="border-bottom: 1.5px solid #000; margin-top: 8px; width: 100%;"></div>
+  <div style="border-bottom: 1.5px solid #000; margin-top: 10px; width: 100%;"></div>
 </div>
 
 <!-- ── INVOICE META ── -->
 <div style="margin: 14px 0 16px 0;">
   <div style="color: #000; font-size: 26px; font-weight: 900; letter-spacing: -0.3px; line-height: 1.1;">TAX INVOICE</div>
-  <div style="color: #000; font-size: 17px; font-weight: 800; margin-top: 4px;">${escapeHtml(billNoDisplay)}</div>
-  <div style="color: #111; font-size: 12px; margin-top: 5px;">${dateStr}</div>
-  <div style="color: #111; font-size: 12px; margin-top: 2px;">${timeStr}</div>
+  <div style="color: #000; font-size: 15px; font-weight: 800; margin-top: 5px;">GST NO. - ${escapeHtml(storeGstin)}</div>
+  <div style="color: #000; font-size: 17px; font-weight: 800; margin-top: 6px;">${escapeHtml(billNoDisplay)}</div>
+  <div style="color: #000; font-size: 12px; margin-top: 6px;">${dateStr}</div>
+  <div style="color: #000; font-size: 12px; margin-top: 2px;">${timeStr}</div>
 </div>
 
 ${
@@ -523,105 +515,73 @@ ${
 }
 
 <!-- ── BILLED TO & PAYMENT MODE ── -->
-<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; padding-right: 12px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; padding-right: 8px;">
   <!-- BILLED TO -->
   <div style="display: flex; align-items: flex-start; gap: 10px;">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px; flex-shrink: 0;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     <div>
-      <div style="color: #111; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">BILLED TO</div>
+      <div style="color: #000; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">BILLED TO</div>
       <div style="color: #000; font-size: 15px; font-weight: 800; margin-top: 2px;">${escapeHtml(sale.customer_name || "Walk-in Customer")}</div>
-      <div style="color: #111; font-size: 11.5px; margin-top: 2px;">Ph: ${escapeHtml(sale.customer_phone || "--")}</div>
+      <div style="color: #000; font-size: 11.5px; margin-top: 2px;">Ph: ${escapeHtml(sale.customer_phone || "--")}</div>
     </div>
   </div>
 
   <!-- PAYMENT MODE -->
-  <div style="display: flex; align-items: flex-start; gap: 10px;">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px; flex-shrink: 0;"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-    <div>
-      <div style="color: #111; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">PAYMENT MODE</div>
-      <div style="margin-top: 4px;">
-        <span style="border: 1px solid #9ca3af; background: #e5e7eb; color: #000; border-radius: 9999px; padding: 2px 16px; font-size: 11.5px; font-weight: 800; display: inline-block; text-transform: uppercase;">
-          ${escapeHtml(paymentDisplay)}
-        </span>
-      </div>
-      <div style="color: #111; font-size: 11.5px; margin-top: 4px;">Status: PAID</div>
+  <div style="display: flex; flex-direction: column; align-items: center;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+      <div style="color: #000; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">PAYMENT MODE</div>
     </div>
+    <div style="margin-top: 6px;">
+      <span style="background: #e5e7eb; color: #000; border-radius: 9999px; padding: 3px 22px; font-size: 11.5px; font-weight: 800; display: inline-block; text-transform: uppercase;">
+        ${escapeHtml(paymentDisplay)}
+      </span>
+    </div>
+    <div style="color: #000; font-size: 11.5px; margin-top: 6px; font-weight: 500;">Status: PAID</div>
   </div>
 </div>
 
 <!-- ── ITEMS TABLE ── -->
 <table>
   <thead>
-    ${
-      hasAnyHsn
-        ? `<tr style="border-bottom: 1.5px solid #000;">
-      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 28px;">#</th>
+    <tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
+      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 30px;">#</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 48px;">HSN</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 50px;">HSN</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 36px;">QTY</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 78px;">MRP</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 72px;">DISCOUNT %</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 84px; line-height: 1.2;">DISCOUNTED<br/>PRICE</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 58px; line-height: 1.2;">CGST${gstHeaderSub}</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 58px; line-height: 1.2;">SGST${gstHeaderSub}</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 80px;">TOTAL</th>
-    </tr>`
-        : `<tr style="border-bottom: 1.5px solid #000;">
-      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 32px;">#</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 44px;">QTY</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 95px;">MRP</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px;">DISCOUNT %</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 95px; line-height: 1.2;">DISCOUNTED<br/>PRICE</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 95px;">TOTAL</th>
-    </tr>`
-    }
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 75px; line-height: 1.2;">MRP<br/>(₹)</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 70px; line-height: 1.2;">Discount<br/>%</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px; line-height: 1.2;">Taxable Amount<br/>(₹)</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 62px; line-height: 1.2;">CGST<br/>${cgstRateLabel} (₹)</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 62px; line-height: 1.2;">SGST<br/>${sgstRateLabel} (₹)</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px; line-height: 1.2;">Final Amount<br/>(₹)</th>
+    </tr>
   </thead>
   <tbody>
     ${itemRows}
-    ${
-      hasAnyHsn
-        ? `<tr style="border-top: 1.5px solid #000; border-bottom: 2px solid #000;">
-      <td colspan="4" style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; color: #000;">
-        G.TOTAL
+    <tr style="border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
+      <td colspan="4" style="padding: 10px 6px; text-align: right; font-size: 12.5px; font-weight: 900; letter-spacing: 0.3px; color: #000;">
+        TOTAL (${totalQty} ${totalQty === 1 ? "ITEM" : "ITEMS"})
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ₹${totalBasePrice.toFixed(2)}
+        ₹${totalMrp.toFixed(2)}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ${totalDiscountDisplay}
+        ${totalDiscount > 0 ? `- ₹${totalDiscount.toFixed(2)}` : "—"}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ₹${discountedGrandTotal.toFixed(2)}
+        ₹${totalTaxable.toFixed(2)}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ${totalCgst > 0 ? `₹${totalCgst.toFixed(2)}` : "—"}
+        ₹${totalCgst.toFixed(2)}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ${totalSgst > 0 ? `₹${totalSgst.toFixed(2)}` : "—"}
+        ₹${totalSgst.toFixed(2)}
       </td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; color: #000;">
-        ₹${finalGrandTotal.toFixed(2)}
+      <td style="padding: 10px 6px; text-align: right; font-size: 12.5px; font-weight: 900; color: #000;">
+        ₹${totalFinal.toFixed(2)}
       </td>
-    </tr>`
-        : `<tr style="border-top: 1.5px solid #000; border-bottom: 2px solid #000;">
-      <td colspan="3" style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; color: #000;">
-        G.TOTAL
-      </td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ₹${totalBasePrice.toFixed(2)}
-      </td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ${totalDiscountDisplay}
-      </td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ₹${discountedGrandTotal.toFixed(2)}
-      </td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; color: #000;">
-        ₹${finalGrandTotal.toFixed(2)}
-      </td>
-    </tr>`
-    }
+    </tr>
   </tbody>
 </table>
 
@@ -649,8 +609,8 @@ ${
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       <span style="font-size: 11.5px; font-weight: 800; color: #000;">Thank You for Shopping!</span>
     </div>
-    <div style="font-family: 'Caveat', 'Segoe Script', 'Brush Script MT', 'Dancing Script', cursive, sans-serif; font-size: 32px; font-weight: 700; color: #000; line-height: 1.1; margin-top: 4px;">
-      Visit Again <span style="font-size: 22px; vertical-align: middle;">&#9825;</span>
+    <div style="font-family: 'Caveat', 'Segoe Script', 'Brush Script MT', 'Dancing Script', cursive, sans-serif; font-size: 34px; font-weight: 700; color: #000; line-height: 1.1; margin-top: 4px;">
+      Visit Again <span style="font-size: 24px; vertical-align: middle;">&#9825;</span>
     </div>
   </div>
 </div>
