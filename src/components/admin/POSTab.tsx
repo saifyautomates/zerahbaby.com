@@ -223,7 +223,7 @@ export function POSTab() {
     const local = loadStoredSessionsLocal();
     const savedId = loadActiveSessionIdLocal();
     const active = savedId ? local.find((s) => s.id === savedId) : local[0];
-    if (active?.items && active.items.length > 0) return active.items;
+    if (active && Array.isArray(active.items)) return active.items;
     const draft = loadPOSDraft();
     return draft?.cart || [];
   });
@@ -396,10 +396,16 @@ export function POSTab() {
           if (closedSessionIdsRef.current.has(s.id)) continue;
           const remote = map.get(s.id);
           if (remote) {
+            const preferLocal =
+              s.id === activeSessionId ||
+              !remote.updated_at ||
+              !s.updated_at ||
+              new Date(s.updated_at).getTime() >= new Date(remote.updated_at).getTime();
+
             map.set(s.id, {
               ...remote,
               ...s,
-              items: s.items && s.items.length > 0 ? s.items : remote.items,
+              items: preferLocal ? (s.items ?? []) : (remote.items ?? []),
               customer_name: s.customer_name || remote.customer_name,
               customer_phone: s.customer_phone || remote.customer_phone,
               customer_email: s.customer_email || remote.customer_email,
@@ -2350,18 +2356,23 @@ export function POSTab() {
     setProductSearch("");
     setScanValue("");
 
+    const nowIso = new Date().toISOString();
+    const effectiveId = activeSessionId || sessions[0]?.id;
+
     // 2. Also clear items in active session
-    if (activeSessionId) {
+    if (effectiveId) {
       setSessions((prev) => {
         const updated = prev.map((s) =>
-          s.id === activeSessionId
+          s.id === effectiveId
             ? {
                 ...s,
                 items: [],
                 subtotal: 0,
                 discount_total: 0,
                 total: 0,
-                updated_at: new Date().toISOString(),
+                discount_type: "none" as const,
+                discount_value: 0,
+                updated_at: nowIso,
               }
             : s,
         );
@@ -2369,17 +2380,46 @@ export function POSTab() {
         return updated;
       });
 
-      const current = sessions.find((s) => s.id === activeSessionId);
-      if (current) {
-        savePOSSession({
-          ...current,
-          items: [],
-          subtotal: 0,
-          discount_total: 0,
-          total: 0,
-          updated_at: new Date().toISOString(),
-        }).catch(() => {});
-      }
+      // Synchronously update React Query cache to prevent background poll resurrection
+      qc.setQueryData<POSSession[]>(ACTIVE_POS_SESSIONS_QUERY_KEY, (prevRemote) => {
+        if (!prevRemote) return prevRemote;
+        return prevRemote.map((s) =>
+          s.id === effectiveId
+            ? {
+                ...s,
+                items: [],
+                subtotal: 0,
+                discount_total: 0,
+                total: 0,
+                discount_type: "none" as const,
+                discount_value: 0,
+                updated_at: nowIso,
+              }
+            : s,
+        );
+      });
+
+      const current = sessions.find((s) => s.id === effectiveId) || {
+        ...createDefaultSession("1"),
+        id: effectiveId,
+      };
+
+      const clearedSession: POSSession = {
+        ...current,
+        items: [],
+        subtotal: 0,
+        discount_total: 0,
+        total: 0,
+        discount_type: "none" as const,
+        discount_value: 0,
+        updated_at: nowIso,
+      };
+
+      savePOSSession(clearedSession)
+        .then(() => {
+          qc.invalidateQueries({ queryKey: ACTIVE_POS_SESSIONS_QUERY_KEY });
+        })
+        .catch(() => {});
     }
 
     // 3. Clear draft in localStorage
