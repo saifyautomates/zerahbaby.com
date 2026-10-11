@@ -77,6 +77,7 @@ type SaleItem = {
   product_id?: string | null;
   product_slug?: string | null;
   mrp_snapshot?: number | null;
+  barcode?: string | null;
   barcode_snapshot?: string | null;
   quantity?: number;
   quantity_sold?: number;
@@ -447,29 +448,60 @@ export function OfflineAnalyticsTab() {
   // Authoritative returns list from cloud ledger
   const { data: returnsList = [] } = useOfflineReturnsList();
 
-  // Fast map of returned quantities by original sale item ID from returns ledger
-  const returnsBySaleItemId = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const ret of returnsList) {
-      for (const item of (ret as { offline_return_items?: Array<{ original_sale_item_id?: string | null; quantity?: number; qty?: number }> }).offline_return_items ?? []) {
+  // Fast map of returned quantities by original sale item ID and defensive fallback by sale + SKU/barcode
+  const { returnsBySaleItemId, returnsBySaleAndItemKey } = useMemo(() => {
+    const byItemId = new Map<string, number>();
+    const bySaleAndKey = new Map<string, number>();
+    for (const ret of (returnsList as any[])) {
+      const saleRef = ret.original_sale_id || ret.original_sale_number;
+      for (const item of (ret.offline_return_items ?? [])) {
+        const qty = Number(item.quantity || item.qty || 1);
         if (item.original_sale_item_id) {
-          const prev = map.get(item.original_sale_item_id) || 0;
-          map.set(item.original_sale_item_id, prev + Number(item.quantity || item.qty || 1));
+          const prev = byItemId.get(item.original_sale_item_id) || 0;
+          byItemId.set(item.original_sale_item_id, prev + qty);
+        }
+        if (saleRef) {
+          if (item.sku) {
+            const k = `${saleRef}_sku_${item.sku}`.toLowerCase();
+            bySaleAndKey.set(k, (bySaleAndKey.get(k) || 0) + qty);
+          }
+          if (item.barcode) {
+            const k = `${saleRef}_barcode_${item.barcode}`.toLowerCase();
+            bySaleAndKey.set(k, (bySaleAndKey.get(k) || 0) + qty);
+          }
+          if (item.product_id) {
+            const k = `${saleRef}_prod_${item.product_id}`.toLowerCase();
+            bySaleAndKey.set(k, (bySaleAndKey.get(k) || 0) + qty);
+          }
         }
       }
     }
-    return map;
+    return { returnsBySaleItemId: byItemId, returnsBySaleAndItemKey: bySaleAndKey };
   }, [returnsList]);
 
   // Helper to extract only active (unreturned) items for a sale
   const getActiveSaleItems = (sale: {
     id?: string;
+    sale_number?: string;
     offline_sale_items?: Array<SaleItem> | null;
   }): SaleItem[] => {
     return (sale.offline_sale_items ?? [])
       .map((item) => {
         const sold = Number(item.quantity_sold ?? item.qty ?? (item as unknown as Record<string, unknown>).quantity ?? 1);
-        const retFromList = item.id ? (returnsBySaleItemId.get(item.id) || 0) : 0;
+        const sNum = sale.sale_number;
+        const sId = sale.id;
+        const fallbackMatched = Math.max(
+          (sId && item.sku ? returnsBySaleAndItemKey.get(`${sId}_sku_${item.sku}`.toLowerCase()) : 0) || 0,
+          (sId && item.barcode ? returnsBySaleAndItemKey.get(`${sId}_barcode_${item.barcode}`.toLowerCase()) : 0) || 0,
+          (sId && item.product_id ? returnsBySaleAndItemKey.get(`${sId}_prod_${item.product_id}`.toLowerCase()) : 0) || 0,
+          (sNum && item.sku ? returnsBySaleAndItemKey.get(`${sNum}_sku_${item.sku}`.toLowerCase()) : 0) || 0,
+          (sNum && item.barcode ? returnsBySaleAndItemKey.get(`${sNum}_barcode_${item.barcode}`.toLowerCase()) : 0) || 0,
+          (sNum && item.product_id ? returnsBySaleAndItemKey.get(`${sNum}_prod_${item.product_id}`.toLowerCase()) : 0) || 0,
+        );
+        const retFromList = Math.max(
+          item.id ? (returnsBySaleItemId.get(item.id) || 0) : 0,
+          fallbackMatched,
+        );
         const ret = Math.max(
           Number(item.quantity_returned ?? 0),
           Number(item.returned_quantity ?? 0),
@@ -514,7 +546,7 @@ export function OfflineAnalyticsTab() {
       (sales ?? []).filter(
         (s) => isValidPOSSale(s) && !isSaleFullyReturned(s as unknown as Sale),
       ) as unknown as Sale[],
-    [sales, returnsBySaleItemId],
+    [sales, returnsBySaleItemId, returnsBySaleAndItemKey],
   );
 
   // Cancelled or voided transactions are automatically deleted and never stored in sales history
