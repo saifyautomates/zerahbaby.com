@@ -89,6 +89,8 @@ export function hasPendingScans(): boolean {
 
 export function clearPendingScans(): void {
   pendingScanQueue.length = 0;
+  lastFiredCode = "";
+  lastFiredTime = 0;
   if (typeof window !== "undefined") {
     (window as unknown as { __PENDING_BARCODE_QUEUE: string[] }).__PENDING_BARCODE_QUEUE = [];
   }
@@ -103,6 +105,7 @@ let burstStartTime = 0;
 let burstKeyCount = 0;
 let isGlobalListenerBound = false;
 let quietTimer: ReturnType<typeof setTimeout> | null = null;
+let activeScanListenersCount = 0;
 
 const globalCallbacks = new Set<(code: string) => void>();
 let lastFiredCode = "";
@@ -155,8 +158,10 @@ function commitBarcode(rawString: string, activeElement?: HTMLElement | null): b
     }
   }
 
-  // Push to pending queue
-  pushPendingScan(clean);
+  // Only push to pending queue if NO live listener is currently mounted to receive this scan
+  if (activeScanListenersCount === 0 && globalCallbacks.size === 0) {
+    pushPendingScan(clean);
+  }
 
   // Dispatch custom event to all listeners
   const event = new CustomEvent<BarcodeScanDetail>(SCANNER_EVENT_NAME, {
@@ -303,6 +308,7 @@ export function useGlobalBarcodeScanner(onScan: (code: string) => void, enabled:
 
   useEffect(() => {
     if (!enabled) return;
+    activeScanListenersCount++;
 
     // 1. Drain any pending scans that arrived before this component was mounted
     const pending = popPendingScans();
@@ -334,6 +340,7 @@ export function useGlobalBarcodeScanner(onScan: (code: string) => void, enabled:
     };
     window.addEventListener(SCANNER_EVENT_NAME, listener);
     return () => {
+      activeScanListenersCount = Math.max(0, activeScanListenersCount - 1);
       window.removeEventListener(SCANNER_EVENT_NAME, listener);
     };
   }, [enabled]);

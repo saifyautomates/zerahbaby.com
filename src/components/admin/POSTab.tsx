@@ -26,6 +26,7 @@ import {
   useGlobalBarcodeScanner,
   sanitizeBarcode,
   getBarcodeCandidates,
+  clearPendingScans,
 } from "@/lib/barcode-scanner";
 import { safeLazy } from "@/lib/safe-lazy";
 
@@ -1286,6 +1287,12 @@ export function POSTab() {
     saveActiveSessionIdLocal(newSess.id);
 
     // Reset active state for new sale
+    clearPendingScans();
+    try {
+      localStorage.removeItem(POS_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
     setCart([]);
     setCustomerMode("walkin");
     setCustomerName("");
@@ -1606,6 +1613,12 @@ export function POSTab() {
     saveActiveSessionIdLocal(fresh.id);
 
     // Reset all POS inputs & cart state
+    clearPendingScans();
+    try {
+      localStorage.removeItem(POS_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
     setCart([]);
     setDiscountType("none");
     setDiscountValue(0);
@@ -2483,6 +2496,7 @@ export function POSTab() {
   }
 
   function handleCancelCart() {
+    clearPendingScans();
     // 1. Immediately empty active cart
     setCart([]);
     setDiscountType("none");
@@ -2739,6 +2753,12 @@ export function POSTab() {
         setIsA4InvoiceOpen(false);
       }
       setStep("success");
+      clearPendingScans();
+      try {
+        localStorage.removeItem(POS_DRAFT_KEY);
+      } catch {
+        // ignore
+      }
 
       // Mark completed session closed in Supabase & local state
       if (activeSessionId) {
@@ -2786,6 +2806,7 @@ export function POSTab() {
 
   // Reset for new sale
   function resetPOS() {
+    clearPendingScans();
     setCart([]);
     setDiscountType("none");
     setDiscountValue(0);
