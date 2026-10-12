@@ -2273,12 +2273,13 @@ export function ProductForm({
                         !draft.variants[0].color &&
                         !draft.variants[0].size;
 
+                      const initialSku = generateSKU(draft.category, draft.colors[0], "M");
                       const newVar: ProductVariantDraft = {
                         name: "",
                         color: draft.colors[0] || null,
                         size: "M",
-                        sku: generateSKU(draft.category, draft.colors[0], "M"),
-                        barcode: generateVariantBarcode(draft.category, draft.colors[0], "M"),
+                        sku: initialSku,
+                        barcode: initialSku,
                         stock: 1,
                         price_override: null,
                       };
@@ -2519,7 +2520,11 @@ export function ProductForm({
                                   updated[idx].size,
                                 );
                                 updated[idx].sku = newSku;
-                                if (!updated[idx].barcode || updated[idx].barcode === previousSku) {
+                                const isDummyBarcode =
+                                  !updated[idx].barcode ||
+                                  updated[idx].barcode === previousSku ||
+                                  /^ZR-[A-Z]{2}-M-\d{4}$/.test(updated[idx].barcode);
+                                if (isDummyBarcode) {
                                   updated[idx].barcode = newSku;
                                 }
                                 set("variants", updated);
@@ -2569,7 +2574,11 @@ export function ProductForm({
                                 newSize,
                               );
                               updated[idx].sku = newSku;
-                              if (!updated[idx].barcode || updated[idx].barcode === previousSku) {
+                              const isDummyBarcode =
+                                !updated[idx].barcode ||
+                                updated[idx].barcode === previousSku ||
+                                /^ZR-[A-Z]{2}-M-\d{4}$/.test(updated[idx].barcode);
+                              if (isDummyBarcode) {
                                 updated[idx].barcode = newSku;
                               }
                               set("variants", updated);

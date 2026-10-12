@@ -144,6 +144,7 @@ export type SaleResult = {
 
 export type BarcodeResult = {
   found: boolean;
+  conflict?: boolean;
   archived?: boolean;
   error?: string;
   product_id?: string;
@@ -245,51 +246,61 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
         ) => Promise<{ data: any; error: any }>
       )("lookup_barcode", { _code: clean });
 
-      if (!error && data && data.found) {
-        // Keep offline IndexedDB cache fresh with authoritative live stock & pricing
-        import("@/lib/offline-sync-engine")
-          .then((m) => {
-            m.updateOfflineCatalogProduct({
-              id: data.product_id,
-              uuid: data.product_id,
-              slug: data.slug,
-              name: data.name,
-              brand: data.brand,
-              category: data.category,
-              price: Number(data.price || 0),
-              mrp: Number(data.mrp || data.price || 0),
-              stock: Number(data.stock || 0),
-              sku: data.sku,
-              barcode: data.barcode,
-              sales_channel: data.sales_channel,
-              is_active: !data.archived,
-            }).catch(console.error);
-          })
-          .catch(console.error);
+      if (!error && data) {
+        if (data.conflict) {
+          return {
+            found: false,
+            conflict: true,
+            error: data.error || `Barcode conflict: code "${clean}" matches multiple products`,
+          };
+        }
 
-        const res: BarcodeResult = {
-          found: true,
-          archived: !!data.archived,
-          product_id: data.product_id,
-          variant_id: data.variant_id || "",
-          slug: data.slug,
-          name: data.name,
-          brand: data.brand || "Zérah Baby & Kids",
-          category: data.category || "clothing",
-          price: Number(data.price || 0),
-          mrp: Number(data.mrp || data.price || 0),
-          stock: Number(data.stock || 0),
-          sku: data.sku || "",
-          barcode: data.barcode || clean,
-          image_url: data.image_url,
-          age_group: data.age_group || "",
-          description: data.description || "",
-          sales_channel: (data.sales_channel || "ONLINE_AND_OFFLINE") as
-            "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
-          buying_price: Number(data.buying_price || 0) || null,
-        };
-        barcodeMemoryCache.set(clean.toLowerCase(), { result: res, timestamp: Date.now() });
-        return res;
+        if (data.found) {
+          // Keep offline IndexedDB cache fresh with authoritative live stock & pricing
+          import("@/lib/offline-sync-engine")
+            .then((m) => {
+              m.updateOfflineCatalogProduct({
+                id: data.product_id,
+                uuid: data.product_id,
+                slug: data.slug,
+                name: data.name,
+                brand: data.brand,
+                category: data.category,
+                price: Number(data.price || 0),
+                mrp: Number(data.mrp || data.price || 0),
+                stock: Number(data.stock || 0),
+                sku: data.sku,
+                barcode: data.barcode,
+                sales_channel: data.sales_channel,
+                is_active: !data.archived,
+              }).catch(console.error);
+            })
+            .catch(console.error);
+
+          const res: BarcodeResult = {
+            found: true,
+            archived: !!data.archived,
+            product_id: data.product_id,
+            variant_id: data.variant_id || "",
+            slug: data.slug,
+            name: data.name,
+            brand: data.brand || "Zérah Baby & Kids",
+            category: data.category || "clothing",
+            price: Number(data.price || 0),
+            mrp: Number(data.mrp || data.price || 0),
+            stock: Number(data.stock || 0),
+            sku: data.sku || "",
+            barcode: data.barcode || clean,
+            image_url: data.image_url,
+            age_group: data.age_group || "",
+            description: data.description || "",
+            sales_channel: (data.sales_channel || "ONLINE_AND_OFFLINE") as
+              "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+            buying_price: Number(data.buying_price || 0) || null,
+          };
+          barcodeMemoryCache.set(clean.toLowerCase(), { result: res, timestamp: Date.now() });
+          return res;
+        }
       }
     } catch (rpcErr) {
       console.warn("[pos] Online barcode lookup notice:", rpcErr);
@@ -302,15 +313,22 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
         ? `barcode.ilike.${clean},sku.ilike.${clean},slug.ilike.${clean},id.eq.${clean}`
         : `barcode.ilike.${clean},sku.ilike.${clean},slug.ilike.${clean}`;
 
-      const { data: rawDirectProduct } = await supabase
+      const { data: rawDirectProducts } = await supabase
         .from("products")
         .select(
           "*, product_images(public_url, is_primary, sort_order), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
         )
-        .or(orFilter)
-        .maybeSingle();
+        .or(orFilter);
 
-      const directProduct = rawDirectProduct as unknown as DirectProductResult | null;
+      if (rawDirectProducts && rawDirectProducts.length > 1) {
+        return {
+          found: false,
+          conflict: true,
+          error: `Barcode conflict: multiple products match "${clean}"`,
+        };
+      }
+
+      const directProduct = (rawDirectProducts?.[0] || null) as unknown as DirectProductResult | null;
 
       if (directProduct) {
         const variants = (directProduct.product_variants || []).filter(
@@ -369,13 +387,27 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
         };
       } else {
         // Direct fallback: Check product_variants table directly for variant-specific barcode or SKU
-        const { data: rawVariant } = await supabase
+        const { data: rawVariants } = await supabase
           .from("product_variants")
           .select(
             "id, name, sku, barcode, stock, price_override, mrp_override, color, size, image_url, products(*, product_images(public_url, is_primary, sort_order))",
           )
-          .or(`barcode.eq.${clean},sku.ilike.${clean}`)
-          .maybeSingle();
+          .or(`barcode.eq.${clean},sku.ilike.${clean}`);
+
+        if (rawVariants && rawVariants.length > 1) {
+          const uniqueProdIds = new Set(
+            rawVariants.map((v: any) => v.products?.id || (v as any).product_id).filter(Boolean),
+          );
+          if (uniqueProdIds.size > 1) {
+            return {
+              found: false,
+              conflict: true,
+              error: `Barcode conflict: code "${clean}" matches variants across multiple products`,
+            };
+          }
+        }
+
+        const rawVariant = rawVariants?.[0] || null;
 
         if (rawVariant && rawVariant.products) {
           const parentProd = rawVariant.products as unknown as DirectProductResult;

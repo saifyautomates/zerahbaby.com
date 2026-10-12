@@ -981,11 +981,64 @@ export function POSTab() {
     return { totalCost, profit, marginPct, hasCostData };
   }, [cart, total, products, discountAmount, couponDiscount]);
 
-  // In-Memory O(1) Instant POS Catalog Index (Barcodes, SKUs, IDs, Variants)
+  // In-Memory O(1) Instant POS Catalog Index (Barcodes, SKUs, IDs, Variants) with collision detection
   const productLookupMaps = useMemo(() => {
-    const barcodeMap = new Map<string, { product: Product; variant?: ProductVariant }>();
-    const skuMap = new Map<string, { product: Product; variant?: ProductVariant }>();
+    type MatchEntry =
+      | { conflict: false; product: Product; variant?: ProductVariant }
+      | { conflict: true; conflictingNames: string[] };
+
+    const barcodeMap = new Map<string, MatchEntry>();
+    const skuMap = new Map<string, MatchEntry>();
     const idMap = new Map<string, Product>();
+
+    const registerItem = (
+      map: Map<string, MatchEntry>,
+      key: string,
+      product: Product,
+      variant?: ProductVariant,
+    ) => {
+      const existing = map.get(key);
+      const itemName = variant && variant.name !== "Default" ? `${product.name} (${variant.name})` : product.name;
+      const prodId = product.uuid || product.id;
+
+      if (!existing) {
+        map.set(key, { conflict: false, product, variant });
+        return;
+      }
+
+      if (existing.conflict) {
+        if (!existing.conflictingNames.includes(itemName)) {
+          existing.conflictingNames.push(itemName);
+        }
+        return;
+      }
+
+      const existingProdId = existing.product.uuid || existing.product.id;
+      const isSameProduct = existingProdId === prodId;
+
+      if (!isSameProduct) {
+        const existingName = existing.variant && existing.variant.name !== "Default"
+          ? `${existing.product.name} (${existing.variant.name})`
+          : existing.product.name;
+        map.set(key, {
+          conflict: true,
+          conflictingNames: [existingName, itemName],
+        });
+        return;
+      }
+
+      // Same product: if one is variant-specific and one was parent product, prefer the specific variant
+      if (!existing.variant && variant) {
+        map.set(key, { conflict: false, product, variant });
+      } else if (existing.variant && variant && existing.variant.id !== variant.id) {
+        // Two distinct variants of the SAME product registered with identical barcode/SKU
+        const existingName = `${existing.product.name} (${existing.variant.name})`;
+        map.set(key, {
+          conflict: true,
+          conflictingNames: [existingName, itemName],
+        });
+      }
+    };
 
     if (Array.isArray(products)) {
       for (const p of products) {
@@ -998,11 +1051,11 @@ export function POSTab() {
         if (p.barcode) {
           const cands = getBarcodeCandidates(p.barcode);
           for (const c of cands) {
-            barcodeMap.set(c.toLowerCase(), { product: p });
+            registerItem(barcodeMap, c.toLowerCase(), p);
           }
         }
         if (p.sku) {
-          skuMap.set(p.sku.trim().toLowerCase(), { product: p });
+          registerItem(skuMap, p.sku.trim().toLowerCase(), p);
         }
 
         if (p.variants && p.variants.length > 0) {
@@ -1011,11 +1064,11 @@ export function POSTab() {
             if (v.barcode) {
               const cands = getBarcodeCandidates(v.barcode);
               for (const c of cands) {
-                barcodeMap.set(c.toLowerCase(), { product: p, variant: v });
+                registerItem(barcodeMap, c.toLowerCase(), p, v);
               }
             }
             if (v.sku) {
-              skuMap.set(v.sku.trim().toLowerCase(), { product: p, variant: v });
+              registerItem(skuMap, v.sku.trim().toLowerCase(), p, v);
             }
           }
         }
@@ -1683,17 +1736,29 @@ export function POSTab() {
       const candidates = getBarcodeCandidates(cleanCode);
 
       // ── PRIORITY 1: INSTANT IN-MEMORY LOOKUP (< 1ms, ZERO NETWORK DELAY) ──
-      let inMemoryMatch: { product: Product; variant?: ProductVariant } | undefined;
+      let inMemoryMatch:
+        | { conflict: false; product: Product; variant?: ProductVariant }
+        | { conflict: true; conflictingNames: string[] }
+        | undefined;
       for (const cand of candidates) {
         const q = cand.toLowerCase();
         inMemoryMatch =
           productLookupMaps.barcodeMap.get(q) ||
           productLookupMaps.skuMap.get(q) ||
-          (productLookupMaps.idMap.has(q) ? { product: productLookupMaps.idMap.get(q)! } : undefined);
+          (productLookupMaps.idMap.has(q) ? { conflict: false, product: productLookupMaps.idMap.get(q)! } : undefined);
         if (inMemoryMatch) break;
       }
 
       if (inMemoryMatch) {
+        if (inMemoryMatch.conflict) {
+          playScanError();
+          toast.error(`Barcode conflict: "${cleanCode}" is assigned to multiple products`, {
+            description: `Conflicting items: ${inMemoryMatch.conflictingNames.slice(0, 3).join(", ")}. Please resolve duplicate barcodes or select item manually.`,
+            duration: 6000,
+          });
+          return;
+        }
+
         const product = inMemoryMatch.product;
         let variant = inMemoryMatch.variant;
 
@@ -1795,68 +1860,79 @@ export function POSTab() {
           let result: BarcodeResult | null = null;
           for (const cand of candidates) {
             const res = await lookupBarcode(cand);
-            if (res && res.found) {
+            if (res && (res.found || res.conflict)) {
               result = res;
               break;
             }
           }
 
-          if (result && result.found) {
-            if (result.archived) {
+          if (result) {
+            if (result.conflict) {
               playScanError();
-              toast.error(`"${result.name}" is archived and unavailable for sale`, {
-                duration: 5000,
+              toast.error(`Barcode conflict: "${cleanCode}" is assigned to multiple products`, {
+                description: result.error || "Please resolve duplicate barcodes or select item manually.",
+                duration: 6000,
               });
               return;
             }
 
-            if ((result.stock ?? 0) <= 0) {
-              playScanError();
-              toast.error(`"${result.name}" is out of stock!`, {
-                description: "Cannot add out-of-stock items to a new POS sale.",
+            if (result.found) {
+              if (result.archived) {
+                playScanError();
+                toast.error(`"${result.name}" is archived and unavailable for sale`, {
+                  duration: 5000,
+                });
+                return;
+              }
+
+              if ((result.stock ?? 0) <= 0) {
+                playScanError();
+                toast.error(`"${result.name}" is out of stock!`, {
+                  description: "Cannot add out-of-stock items to a new POS sale.",
+                });
+                return;
+              }
+
+              const matchedProd = products.find(
+                (p) =>
+                  p.uuid === result.product_id || p.id === result.product_id || p.id === result.slug,
+              );
+              const scannedBuyingPrice =
+                Number(
+                  result.buying_price ?? matchedProd?.buyingPrice ?? matchedProd?.buying_price ?? 0,
+                ) || null;
+
+              const added = addToCart({
+                product_id: result.product_id!,
+                variant_id: result.variant_id || "",
+                slug: result.slug!,
+                name: result.name!,
+                brand: result.brand ?? "",
+                category: result.category ?? "",
+                price: result.price!,
+                mrp: result.mrp ?? result.price!,
+                stock: result.stock!,
+                sku: result.sku ?? "",
+                barcode: result.barcode ?? "",
+                image_url: result.image_url ?? null,
+                age_group: result.age_group ?? "",
+                qty: 1,
+                buying_price: scannedBuyingPrice,
+                sales_channel: result.sales_channel || "ONLINE_AND_OFFLINE",
+                hsn_code: result.hsn_code ?? (matchedProd as any)?.hsn_code ?? null,
+                gst_rate: result.gst_rate != null ? Number(result.gst_rate) : (matchedProd as any)?.gst_rate != null ? Number((matchedProd as any).gst_rate) : null,
               });
-              return;
-            }
 
-            const matchedProd = products.find(
-              (p) =>
-                p.uuid === result.product_id || p.id === result.product_id || p.id === result.slug,
-            );
-            const scannedBuyingPrice =
-              Number(
-                result.buying_price ?? matchedProd?.buyingPrice ?? matchedProd?.buying_price ?? 0,
-              ) || null;
-
-            const added = addToCart({
-              product_id: result.product_id!,
-              variant_id: result.variant_id || "",
-              slug: result.slug!,
-              name: result.name!,
-              brand: result.brand ?? "",
-              category: result.category ?? "",
-              price: result.price!,
-              mrp: result.mrp ?? result.price!,
-              stock: result.stock!,
-              sku: result.sku ?? "",
-              barcode: result.barcode ?? "",
-              image_url: result.image_url ?? null,
-              age_group: result.age_group ?? "",
-              qty: 1,
-              buying_price: scannedBuyingPrice,
-              sales_channel: result.sales_channel || "ONLINE_AND_OFFLINE",
-              hsn_code: result.hsn_code ?? (matchedProd as any)?.hsn_code ?? null,
-              gst_rate: result.gst_rate != null ? Number(result.gst_rate) : (matchedProd as any)?.gst_rate != null ? Number((matchedProd as any).gst_rate) : null,
-            });
-
-            if (added) {
-              playScanSuccess();
-              const isOfflineOnly = result.sales_channel === "OFFLINE_ONLY";
-              toast.success(`Scanned: ${result.name}`, {
-                description: `₹${result.price} • ${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
-              });
-              setIsSearchDropdownOpen(false);
-              setSearchQuery("");
-              return;
+              if (added) {
+                playScanSuccess();
+                const isOfflineOnly = result.sales_channel === "OFFLINE_ONLY";
+                toast.success(`Scanned: ${result.name}`, {
+                  description: `₹${result.price} • ${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
+                });
+                setIsSearchDropdownOpen(false);
+                setSearchQuery("");
+                return;
+              }
             }
           }
         } catch {
@@ -1956,29 +2032,15 @@ export function POSTab() {
         }
 
         // Fallback: search via server-side POS search engine (fuzzy, SKU, barcode, variants)
+        // CRITICAL: An exact barcode scan must NEVER automatically add a fuzzy match or single unrelated match.
         const searchMatches = await searchPOSProducts(cleanCode, 5);
         if (searchMatches.length > 0) {
-          const topMatch = searchMatches[0];
-          const candSet = new Set(candidates.map((c) => c.toLowerCase()));
-          const exactVar = topMatch.variants.find(
-            (v) =>
-              (v.barcode && candSet.has(v.barcode.toLowerCase())) ||
-              (v.sku && candSet.has(v.sku.toLowerCase())),
-          );
-          if (topMatch.match_score >= 80 || exactVar || searchMatches.length === 1) {
-            const added = addPOSResultToCart(topMatch, exactVar);
-            if (added) {
-              setIsSearchDropdownOpen(false);
-              setSearchQuery("");
-              return;
-            }
-          }
-
+          playScanError();
           setProductSearch(cleanCode);
           setIsSearchDropdownOpen(true);
-          toast.info(
-            `Found ${searchMatches.length} product${searchMatches.length > 1 ? "s" : ""} matching "${cleanCode}"`,
-          );
+          toast.error(`No exact barcode match for "${cleanCode}"`, {
+            description: `Found ${searchMatches.length} possible item${searchMatches.length > 1 ? "s" : ""} in catalogue. Please select manually.`,
+          });
           return;
         }
 
@@ -2003,24 +2065,13 @@ export function POSTab() {
           );
         });
 
-        if (localMatches.length === 1) {
-          const p = localMatches[0];
-          const matchedVar = p.variants?.find(
-            (v) =>
-              (v.barcode && candSet.has(v.barcode.toLowerCase())) ||
-              (v.sku && candSet.has(v.sku.toLowerCase())),
-          );
-          addProductManually(p, matchedVar);
-          playScanSuccess();
-          setIsSearchDropdownOpen(false);
-          setSearchQuery("");
-          return;
-        }
-
-        if (localMatches.length > 1) {
+        if (localMatches.length > 0) {
+          playScanError();
           setProductSearch(cleanCode);
           setIsSearchDropdownOpen(true);
-          toast.info(`Found ${localMatches.length} products matching "${cleanCode}"`);
+          toast.error(`No exact barcode match for "${cleanCode}"`, {
+            description: `Found ${localMatches.length} product${localMatches.length > 1 ? "s" : ""} matching search query. Please select manually.`,
+          });
           return;
         }
 
