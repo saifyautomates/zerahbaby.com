@@ -718,9 +718,12 @@ export function calculateFinancialMetrics({
     const orderStatus = String(order.status || "").toLowerCase().trim();
     return (
       isInPeriod(order.created_at) &&
-      orderStatus !== "cancelled" &&
-      paymentStatus !== "paid" &&
-      (paymentMethod === "cod" || paymentStatus === "pending" || paymentStatus === "partial")
+      !["cancelled", "refunded", "failed"].includes(orderStatus) &&
+      !["paid", "completed"].includes(paymentStatus) &&
+      (paymentMethod.includes("cod") ||
+        paymentMethod.includes("cash on delivery") ||
+        paymentMethod === "cash_on_delivery" ||
+        ["pending", "partial", "partially_paid", "unpaid"].includes(paymentStatus))
     );
   });
 
@@ -731,9 +734,12 @@ export function calculateFinancialMetrics({
 
   const pendingPosDueSales = validPos.filter((sale) => {
     const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+    const paymentMethod = String((sale as any).payment_method || "").toLowerCase().trim();
     const returnStatus = String(sale.return_status || "").toLowerCase().trim();
     const dueStatuses = new Set(["pending", "unpaid", "partial", "partially_paid", "due"]);
-    if (!dueStatuses.has(paymentStatus)) return false;
+    const isDueStatus = dueStatuses.has(paymentStatus);
+    const isDueMethod = paymentMethod === "due" || paymentMethod === "credit";
+    if (!isDueStatus && !isDueMethod) return false;
     if (["cancelled", "voided", "failed", "sync_failed"].includes(String(sale.status || "").toLowerCase().trim())) {
       return false;
     }

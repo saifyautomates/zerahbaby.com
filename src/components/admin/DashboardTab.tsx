@@ -492,8 +492,8 @@ export function DashboardTab({
       visitorsCount: currVisitors,
       lowStockCount,
       outOfStockCount,
-      cashOutstanding: currMetrics.cashOutstanding,
-      pendingCodCount: currMetrics.pendingCodCount,
+      cashOutstanding: Math.max(currMetrics.cashOutstanding, allTimeMetrics.cashOutstanding),
+      pendingCodCount: Math.max(currMetrics.pendingCodCount, allTimeMetrics.pendingCodCount),
       revenueDelta,
       ordersDelta,
       visitorsDelta,
@@ -1180,8 +1180,8 @@ export function DashboardTab({
         type={activeDrillDown}
         onBack={() => setActiveDrillDown(null)}
         dateRangeText={dateRangeText}
-        orders={orders.filter((o) => inCurrentPeriod(o.created_at))}
-        posSales={posSales.filter((s) => inCurrentPeriod(s.created_at))}
+        orders={activeDrillDown === "cash" ? orders : orders.filter((o) => inCurrentPeriod(o.created_at))}
+        posSales={activeDrillDown === "cash" ? posSales : posSales.filter((s) => inCurrentPeriod(s.created_at))}
         offlineReturns={offlineReturns.filter((r) => inCurrentPeriod(r.created_at))}
         products={products}
       />
