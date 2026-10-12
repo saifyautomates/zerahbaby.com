@@ -1358,7 +1358,7 @@ function ProductsTab() {
         supabase
           .from("products")
           .select(
-            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, age_group, size, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, age_group, size, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, is_active)",
           )
           .order("created_at", { ascending: false }),
         Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
@@ -1411,7 +1411,8 @@ function ProductsTab() {
       const { data: variants } = await supabase
         .from("product_variants")
         .select("id, name, stock")
-        .eq("product_id", id);
+        .eq("product_id", id)
+        .eq("is_active", true);
 
       if (variants && variants.length > 1) {
         // Adjust stock across variants smoothly without throwing error

@@ -423,16 +423,15 @@ export function useSaveProduct() {
               .from("product_variants" as any)
               .delete()
               .eq("product_id", productId)
-              .eq("is_active", true)
-              .not("id", "in", `(${allSavedVariantIds.map((id) => `'${id}'`).join(",")})`) as any);
+              .not("id", "in", `(${allSavedVariantIds.join(",")})`) as any);
 
             // If any variant could not be deleted due to transaction references, deactivate it safely
             if (delErr) {
-              await supabase
-                .from("product_variants")
+              await (supabase
+                .from("product_variants" as any)
                 .update({ is_active: false, stock: 0, price_override: null, mrp_override: null })
                 .eq("product_id", productId)
-                .not("id", "in", `(${allSavedVariantIds.map((id) => `'${id}'`).join(",")})`);
+                .not("id", "in", `(${allSavedVariantIds.join(",")})`) as any);
             }
           }
 

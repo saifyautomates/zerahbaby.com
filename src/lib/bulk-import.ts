@@ -1641,7 +1641,7 @@ export async function commitBulkImport(
                 .update({ is_active: false, stock: 0 })
                 .eq("product_id", productId)
                 .eq("is_active", true)
-                .not("id", "in", `(${savedIds.map((id) => `'${id}'`).join(",")})`);
+                .not("id", "in", `(${savedIds.join(",")})`);
             }
 
             // Re-link product_images variant_id by variant_sku
