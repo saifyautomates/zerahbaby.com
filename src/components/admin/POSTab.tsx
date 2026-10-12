@@ -1832,8 +1832,8 @@ export function POSTab() {
 
         let stock = variant ? (variant.stock ?? 0) : (product.stock ?? 0);
 
-        // If evaluated stock <= 0, check if another active variant has stock:
-        if (stock <= 0 && product.variants && product.variants.length > 0) {
+        // If evaluated stock <= 0, only check for altVariant if no specific variant was scanned:
+        if (!inMemoryMatch.variant && stock <= 0 && product.variants && product.variants.length > 0) {
           const altVariant = product.variants.find(
             (v: any) => v.isActive !== false && v.is_active !== false && (v.stock ?? 0) > 0,
           );
@@ -1854,7 +1854,28 @@ export function POSTab() {
           const vMrp = variant?.mrpOverride ?? (variant as any)?.mrp_override;
           const hasCustomMrp = vMrp != null && Number(vMrp) > 0 && Number(vMrp) !== Number(product.mrp);
           const mrp = hasCustomMrp ? Number(vMrp) : (product.mrp ?? product.price);
-          const sku = variant?.sku || product.sku || "";
+
+          // Authoritatively resolve SKU to match exactly what was scanned/typed
+          const cleanCodeLower = cleanCode.toLowerCase();
+          let sku = "";
+          if (product.sku && product.sku.trim().toLowerCase() === cleanCodeLower) {
+            sku = product.sku;
+          } else if (variant?.sku && variant.sku.trim().toLowerCase() === cleanCodeLower) {
+            sku = variant.sku;
+          } else {
+            const matchedVarBySku = product.variants?.find(
+              (v) => v.sku && v.sku.trim().toLowerCase() === cleanCodeLower,
+            );
+            if (matchedVarBySku?.sku) {
+              sku = matchedVarBySku.sku;
+              variant = matchedVarBySku;
+            } else if (product.barcode && product.barcode.trim().toLowerCase() === cleanCodeLower && product.sku) {
+              sku = product.sku;
+            } else {
+              sku = variant?.sku || product.sku || cleanCode;
+            }
+          }
+
           const barcode = variant?.barcode || product.barcode || cleanCode;
           const buyingPrice = Number(product.buyingPrice ?? product.buying_price ?? 0) || null;
           const image =
@@ -1949,6 +1970,18 @@ export function POSTab() {
                   result.buying_price ?? matchedProd?.buyingPrice ?? matchedProd?.buying_price ?? 0,
                 ) || null;
 
+              // Authoritatively preserve the exact scanned/typed SKU
+              const cleanCodeLower = cleanCode.toLowerCase();
+              let finalSku = result.sku ?? "";
+              if (matchedProd?.sku && matchedProd.sku.trim().toLowerCase() === cleanCodeLower) {
+                finalSku = matchedProd.sku;
+              } else if (matchedProd?.variants?.some((v) => v.sku && v.sku.trim().toLowerCase() === cleanCodeLower)) {
+                const mv = matchedProd.variants.find((v) => v.sku && v.sku.trim().toLowerCase() === cleanCodeLower);
+                if (mv?.sku) finalSku = mv.sku;
+              } else if (matchedProd?.barcode && matchedProd.barcode.trim().toLowerCase() === cleanCodeLower && matchedProd.sku) {
+                finalSku = matchedProd.sku;
+              }
+
               const added = addToCart({
                 product_id: result.product_id!,
                 variant_id: result.variant_id || "",
@@ -1959,7 +1992,7 @@ export function POSTab() {
                 price: result.price!,
                 mrp: result.mrp ?? result.price!,
                 stock: result.stock!,
-                sku: result.sku ?? "",
+                sku: finalSku,
                 barcode: result.barcode ?? "",
                 image_url: result.image_url ?? null,
                 age_group: result.age_group ?? "",
@@ -1974,7 +2007,7 @@ export function POSTab() {
                 playScanSuccess();
                 const isOfflineOnly = result.sales_channel === "OFFLINE_ONLY";
                 toast.success(`Scanned: ${result.name}`, {
-                  description: `₹${result.price} • ${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
+                  description: `₹${result.price} • ${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • SKU: ${finalSku || "N/A"} • Stock: ${result.stock}`,
                 });
                 setIsSearchDropdownOpen(false);
                 setSearchQuery("");
@@ -2034,7 +2067,15 @@ export function POSTab() {
             const rawVMrp = v?.mrp_override ?? v?.mrpOverride;
             const hasCustomMrp = rawVMrp != null && Number(rawVMrp) > 0 && Number(rawVMrp) !== Number(offline.mrp);
             const mrp = hasCustomMrp ? Number(rawVMrp) : Number(offline.mrp ?? price);
-            const sku = String(v?.sku || offline.sku || "");
+            const cleanCodeLower = cleanCode.toLowerCase();
+            let sku = String(v?.sku || offline.sku || "");
+            if (offline.sku && String(offline.sku).trim().toLowerCase() === cleanCodeLower) {
+              sku = String(offline.sku);
+            } else if (v?.sku && String(v.sku).trim().toLowerCase() === cleanCodeLower) {
+              sku = String(v.sku);
+            } else if (offline.barcode && String(offline.barcode).trim().toLowerCase() === cleanCodeLower && offline.sku) {
+              sku = String(offline.sku);
+            }
             const barcode = String(v?.barcode || offline.barcode || cleanCode);
             const buyingPrice = Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null;
             const image =
@@ -2163,7 +2204,7 @@ export function POSTab() {
       if (itemInPrev) {
         return prev.map((p) =>
           p.product_id === item.product_id && (p.variant_id || "") === (item.variant_id || "")
-            ? { ...p, stock: currentStock, qty: p.qty + 1 }
+            ? { ...p, stock: currentStock, qty: p.qty + 1, sku: item.sku || p.sku }
             : p,
         );
       }

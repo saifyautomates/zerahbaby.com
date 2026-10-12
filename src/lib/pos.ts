@@ -393,7 +393,12 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
             price: Number(rawVariant.price_override ?? parentProd.price ?? 0),
             mrp: Number(rawVariant.mrp_override ?? parentProd.mrp ?? parentProd.price ?? 0),
             stock: Number(rawVariant.stock ?? parentProd.stock ?? 0),
-            sku: rawVariant.sku || parentProd.sku || "",
+            sku:
+              (clean.toLowerCase() === String(rawVariant.sku || "").toLowerCase()
+                ? rawVariant.sku
+                : clean.toLowerCase() === String(parentProd.sku || "").toLowerCase()
+                  ? parentProd.sku
+                  : rawVariant.sku || parentProd.sku) ?? "",
             barcode: rawVariant.barcode || clean,
             image_url: primaryImage,
             age_group: parentProd.age_group || "",
@@ -454,7 +459,14 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
             matchedVariant?.stock != null && Number(matchedVariant.stock) > 0
               ? Number(matchedVariant.stock)
               : Math.max(Number(matchedVariant?.stock || 0), Number(directProduct.stock || 0)),
-          sku: matchedVariant?.sku || directProduct.sku || "",
+          sku:
+            (cleanLower === String(directProduct.sku || "").toLowerCase()
+              ? directProduct.sku
+              : matchedVariant && cleanLower === String(matchedVariant.sku || "").toLowerCase()
+                ? matchedVariant.sku
+                : cleanLower === String(directProduct.barcode || "").toLowerCase() && directProduct.sku
+                  ? directProduct.sku
+                  : matchedVariant?.sku || directProduct.sku) ?? "",
           barcode: matchedVariant?.barcode || directProduct.barcode || clean,
           image_url: matchedVariant?.image_url || primaryImage,
           age_group: directProduct.age_group || "",
