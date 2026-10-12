@@ -1075,7 +1075,54 @@ export function POSTab() {
       }
     }
 
-    return { barcodeMap, skuMap, idMap };
+    const lookupCode = (query: string): MatchEntry | undefined => {
+      const bMatch = barcodeMap.get(query);
+      const sMatch = skuMap.get(query);
+
+      if (bMatch && sMatch) {
+        if (bMatch.conflict) return bMatch;
+        if (sMatch.conflict) return sMatch;
+
+        const bProdId = bMatch.product.uuid || bMatch.product.id;
+        const sProdId = sMatch.product.uuid || sMatch.product.id;
+
+        if (bProdId !== sProdId) {
+          const bName = bMatch.variant && bMatch.variant.name !== "Default"
+            ? `${bMatch.product.name} (${bMatch.variant.name})`
+            : bMatch.product.name;
+          const sName = sMatch.variant && sMatch.variant.name !== "Default"
+            ? `${sMatch.product.name} (${sMatch.variant.name})`
+            : sMatch.product.name;
+          return {
+            conflict: true,
+            conflictingNames: [bName, sName],
+          };
+        }
+
+        // Same product: check if they point to different variants
+        if (bMatch.variant && sMatch.variant && bMatch.variant.id !== sMatch.variant.id) {
+          const bName = `${bMatch.product.name} (${bMatch.variant.name})`;
+          const sName = `${sMatch.product.name} (${sMatch.variant.name})`;
+          return {
+            conflict: true,
+            conflictingNames: [bName, sName],
+          };
+        }
+
+        return bMatch.variant ? bMatch : sMatch;
+      }
+
+      if (bMatch) return bMatch;
+      if (sMatch) return sMatch;
+
+      if (idMap.has(query)) {
+        return { conflict: false, product: idMap.get(query)! };
+      }
+
+      return undefined;
+    };
+
+    return { barcodeMap, skuMap, idMap, lookupCode };
   }, [products]);
 
   // POS customer search
@@ -1742,10 +1789,7 @@ export function POSTab() {
         | undefined;
       for (const cand of candidates) {
         const q = cand.toLowerCase();
-        inMemoryMatch =
-          productLookupMaps.barcodeMap.get(q) ||
-          productLookupMaps.skuMap.get(q) ||
-          (productLookupMaps.idMap.has(q) ? { conflict: false, product: productLookupMaps.idMap.get(q)! } : undefined);
+        inMemoryMatch = productLookupMaps.lookupCode(q);
         if (inMemoryMatch) break;
       }
 
@@ -3283,10 +3327,7 @@ export function POSTab() {
                       let exactMatch: any = null;
                       for (const c of cands) {
                         const qLower = c.toLowerCase();
-                        exactMatch =
-                          productLookupMaps.barcodeMap.get(qLower) ||
-                          productLookupMaps.skuMap.get(qLower) ||
-                          productLookupMaps.idMap.get(qLower);
+                        exactMatch = productLookupMaps.lookupCode(qLower);
                         if (exactMatch) break;
                       }
 

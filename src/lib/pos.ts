@@ -213,6 +213,7 @@ interface DirectProductResult {
   age_group: string | null;
   description: string | null;
   sales_channel: string | null;
+  buying_price?: number | null;
   product_variants?: DirectProductVariant[] | null;
   product_images?: DirectProductImage[] | null;
 }
@@ -306,31 +307,109 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
       console.warn("[pos] Online barcode lookup notice:", rpcErr);
     }
 
-    // Direct online table fallback query
+    // Direct online table fallback query: check collisions across parent product codes and variant codes before selecting any result
     try {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
       const orFilter = isUuid
         ? `barcode.ilike.${clean},sku.ilike.${clean},slug.ilike.${clean},id.eq.${clean}`
         : `barcode.ilike.${clean},sku.ilike.${clean},slug.ilike.${clean}`;
 
-      const { data: rawDirectProducts } = await supabase
-        .from("products")
-        .select(
-          "*, product_images(public_url, is_primary, sort_order), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
-        )
-        .or(orFilter);
+      const [productsRes, variantsRes] = await Promise.all([
+        supabase
+          .from("products")
+          .select(
+            "*, product_images(public_url, is_primary, sort_order), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, is_active)",
+          )
+          .or(orFilter),
+        supabase
+          .from("product_variants")
+          .select(
+            "id, name, sku, barcode, stock, price_override, mrp_override, color, size, image_url, is_active, products(*, product_images(public_url, is_primary, sort_order))",
+          )
+          .or(`barcode.eq.${clean},sku.ilike.${clean}`),
+      ]);
 
-      if (rawDirectProducts && rawDirectProducts.length > 1) {
+      const rawDirectProducts = productsRes.data || [];
+      const rawVariants = variantsRes.data || [];
+
+      // Filter active variants & active products
+      const activeVariants = rawVariants.filter(
+        (v: any) => v.is_active !== false && v.isActive !== false,
+      );
+      const activeProducts = rawDirectProducts.filter(
+        (p: any) => p.is_active !== false && p.isActive !== false,
+      );
+
+      // Collect all matched product IDs across both parent codes and variant codes
+      const matchedProductIds = new Set<string>();
+      activeProducts.forEach((p) => matchedProductIds.add(p.id));
+      activeVariants.forEach((v: any) => {
+        const pId = v.products?.id || (v as any).product_id;
+        if (pId) matchedProductIds.add(pId);
+      });
+
+      // 1. Detect cross-product collisions across parent and variant codes
+      if (matchedProductIds.size > 1) {
         return {
           found: false,
           conflict: true,
-          error: `Barcode conflict: multiple products match "${clean}"`,
+          error: `Barcode conflict: code "${clean}" matches multiple distinct products`,
         };
       }
 
-      const directProduct = (rawDirectProducts?.[0] || null) as unknown as DirectProductResult | null;
+      // 2. Detect collisions across multiple distinct variants within the same product
+      if (activeVariants.length > 1) {
+        const uniqueVariantIds = new Set(activeVariants.map((v) => v.id));
+        if (uniqueVariantIds.size > 1) {
+          return {
+            found: false,
+            conflict: true,
+            error: `Barcode conflict: code "${clean}" matches multiple variants of the same product`,
+          };
+        }
+      }
 
-      if (directProduct) {
+      // 3. If a specific variant matched unambiguously, return that variant
+      if (activeVariants.length === 1) {
+        const rawVariant = activeVariants[0];
+        if (rawVariant && rawVariant.products) {
+          const parentProd = rawVariant.products as unknown as DirectProductResult;
+          const images = parentProd.product_images || [];
+          const primaryImage =
+            rawVariant.image_url ||
+            images.find((img) => img.is_primary)?.public_url ||
+            images[0]?.public_url ||
+            null;
+
+          return {
+            found: true,
+            archived: parentProd.is_active === false,
+            product_id: parentProd.id,
+            variant_id: rawVariant.id,
+            slug: parentProd.slug,
+            name: `${parentProd.name}${rawVariant.name && rawVariant.name !== "Default" ? ` - ${rawVariant.name}` : ""}`,
+            brand: parentProd.brand || "Zérah Baby & Kids",
+            category: parentProd.category || "clothing",
+            price: Number(rawVariant.price_override ?? parentProd.price ?? 0),
+            mrp: Number(rawVariant.mrp_override ?? parentProd.mrp ?? parentProd.price ?? 0),
+            stock: Number(rawVariant.stock ?? parentProd.stock ?? 0),
+            sku: rawVariant.sku || parentProd.sku || "",
+            barcode: rawVariant.barcode || clean,
+            image_url: primaryImage,
+            age_group: parentProd.age_group || "",
+            description: parentProd.description || "",
+            sales_channel: (parentProd.sales_channel || "ONLINE_AND_OFFLINE") as
+              "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+            buying_price: Number(parentProd.buying_price ?? (parentProd as any).buyingPrice ?? 0) || null,
+            hsn_code: (parentProd as any).hsn_code ?? null,
+            gst_rate: (parentProd as any).gst_rate != null ? Number((parentProd as any).gst_rate) : null,
+          };
+        }
+      }
+
+      // 4. Otherwise if parent product matched unambiguously, resolve it
+      if (activeProducts.length === 1) {
+        const directProduct = activeProducts[0] as unknown as DirectProductResult;
         const variants = (directProduct.product_variants || []).filter(
           (v: any) => v.is_active !== false && v.isActive !== false,
         );
@@ -382,65 +461,10 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           description: directProduct.description || "",
           sales_channel: (directProduct.sales_channel || "ONLINE_AND_OFFLINE") as
             "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+          buying_price: Number(directProduct.buying_price ?? (directProduct as any).buyingPrice ?? 0) || null,
           hsn_code: (directProduct as any).hsn_code ?? null,
           gst_rate: (directProduct as any).gst_rate != null ? Number((directProduct as any).gst_rate) : null,
         };
-      } else {
-        // Direct fallback: Check product_variants table directly for variant-specific barcode or SKU
-        const { data: rawVariants } = await supabase
-          .from("product_variants")
-          .select(
-            "id, name, sku, barcode, stock, price_override, mrp_override, color, size, image_url, products(*, product_images(public_url, is_primary, sort_order))",
-          )
-          .or(`barcode.eq.${clean},sku.ilike.${clean}`);
-
-        if (rawVariants && rawVariants.length > 1) {
-          const uniqueProdIds = new Set(
-            rawVariants.map((v: any) => v.products?.id || (v as any).product_id).filter(Boolean),
-          );
-          if (uniqueProdIds.size > 1) {
-            return {
-              found: false,
-              conflict: true,
-              error: `Barcode conflict: code "${clean}" matches variants across multiple products`,
-            };
-          }
-        }
-
-        const rawVariant = rawVariants?.[0] || null;
-
-        if (rawVariant && rawVariant.products) {
-          const parentProd = rawVariant.products as unknown as DirectProductResult;
-          const images = parentProd.product_images || [];
-          const primaryImage =
-            rawVariant.image_url ||
-            images.find((img) => img.is_primary)?.public_url ||
-            images[0]?.public_url ||
-            null;
-
-          return {
-            found: true,
-            archived: parentProd.is_active === false,
-            product_id: parentProd.id,
-            variant_id: rawVariant.id,
-            slug: parentProd.slug,
-            name: `${parentProd.name}${rawVariant.name && rawVariant.name !== "Default" ? ` - ${rawVariant.name}` : ""}`,
-            brand: parentProd.brand || "Zérah Baby & Kids",
-            category: parentProd.category || "clothing",
-            price: Number(rawVariant.price_override ?? parentProd.price ?? 0),
-            mrp: Number(rawVariant.mrp_override ?? parentProd.mrp ?? parentProd.price ?? 0),
-            stock: Number(rawVariant.stock ?? parentProd.stock ?? 0),
-            sku: rawVariant.sku || parentProd.sku || "",
-            barcode: rawVariant.barcode || clean,
-            image_url: primaryImage,
-            age_group: parentProd.age_group || "",
-            description: parentProd.description || "",
-            sales_channel: (parentProd.sales_channel || "ONLINE_AND_OFFLINE") as
-              "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
-            hsn_code: (parentProd as any).hsn_code ?? null,
-            gst_rate: (parentProd as any).gst_rate != null ? Number((parentProd as any).gst_rate) : null,
-          };
-        }
       }
     } catch (directErr) {
       console.warn("[pos] Online direct lookup notice:", directErr);

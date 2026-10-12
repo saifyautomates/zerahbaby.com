@@ -2523,7 +2523,7 @@ export function ProductForm({
                                 const isDummyBarcode =
                                   !updated[idx].barcode ||
                                   updated[idx].barcode === previousSku ||
-                                  /^ZR-[A-Z]{2}-M-\d{4}$/.test(updated[idx].barcode);
+                                  /^ZR-[A-Z]{2}(-[A-Z0-9]+)?-M-\d{4}$/i.test(updated[idx].barcode);
                                 if (isDummyBarcode) {
                                   updated[idx].barcode = newSku;
                                 }
@@ -2577,7 +2577,7 @@ export function ProductForm({
                               const isDummyBarcode =
                                 !updated[idx].barcode ||
                                 updated[idx].barcode === previousSku ||
-                                /^ZR-[A-Z]{2}-M-\d{4}$/.test(updated[idx].barcode);
+                                /^ZR-[A-Z]{2}(-[A-Z0-9]+)?-M-\d{4}$/i.test(updated[idx].barcode);
                               if (isDummyBarcode) {
                                 updated[idx].barcode = newSku;
                               }

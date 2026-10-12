@@ -262,7 +262,7 @@ export function PrintLabelsModal({
         brand: p.brand || "ZERAH",
         artNo: variant?.sku || (p as any).artNo || p.sku || p.barcode || "—",
         sku: variant?.sku || p.sku || "",
-        barcode: variant?.barcode || p.barcode || variant?.sku || p.sku || "",
+        barcode: variant?.barcode || variant?.sku || p.barcode || p.sku || "",
         price: variant?.priceOverride ?? p.price,
         mrp: variant?.mrpOverride ?? p.mrp ?? p.price,
         stock: variant?.stock ?? p.stock ?? 1,
