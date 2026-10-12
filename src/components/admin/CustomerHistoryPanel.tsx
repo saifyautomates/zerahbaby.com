@@ -122,8 +122,8 @@ export function CustomerHistoryPanel() {
       if (error) throw error;
       return (data ?? []) as unknown as OfflineSaleRecord[];
     },
-    staleTime: 10_000,
-    refetchInterval: 20_000,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   /* ── 1b. Fetch POS Customers for Store Credit Balance ── */
@@ -136,7 +136,8 @@ export function CustomerHistoryPanel() {
       if (error) return [];
       return data ?? [];
     },
-    staleTime: 10_000,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   /* ── 2. Fetch Products for Image Thumbnails ── */

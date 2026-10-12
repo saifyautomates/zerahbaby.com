@@ -384,7 +384,8 @@ export function useActivePOSSessions() {
   return useQuery({
     queryKey: ACTIVE_POS_SESSIONS_QUERY_KEY,
     queryFn: fetchActivePOSSessions,
-    staleTime: 5000,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 }
 

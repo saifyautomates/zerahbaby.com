@@ -524,7 +524,8 @@ export function AdminPage() {
       if (error) return [];
       return data ?? [];
     },
-    staleTime: 1000 * 60 * 3, // 3 minutes cache
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    refetchOnWindowFocus: false,
   });
 
   const { data: posSales = [] } = useQuery({
@@ -539,7 +540,8 @@ export function AdminPage() {
       if (error) return [];
       return data ?? [];
     },
-    staleTime: 1000 * 60 * 3, // 3 minutes cache
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    refetchOnWindowFocus: false,
   });
 
   const [lastViewedOnlineOrdersTime, setLastViewedOnlineOrdersTime] = useState<number>(() => {
@@ -594,7 +596,8 @@ export function AdminPage() {
       if (error) return 0;
       return count ?? 0;
     },
-    staleTime: 15_000,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   const { data: adminOnlineReturns = [] } = useAllOnlineReturns(isAdmin ?? false);

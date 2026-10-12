@@ -400,8 +400,8 @@ export function useAllOnlineReturns(enabled: boolean) {
   return useQuery({
     queryKey: ["admin-online-returns"],
     enabled,
-    staleTime: 1000 * 10,
-    refetchInterval: 20000,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("online_returns")

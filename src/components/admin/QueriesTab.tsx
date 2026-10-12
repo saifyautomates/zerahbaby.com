@@ -103,7 +103,8 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
       if (error) throw error;
       return (data ?? []) as unknown as ContactMessageRecord[];
     },
-    refetchInterval: 15000,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   // Real-time Supabase subscription

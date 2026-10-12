@@ -160,7 +160,8 @@ export function SMSLogsTab() {
       }
       return (rpcData ?? []) as unknown as SMSLogRecord[];
     },
-    refetchInterval: 15000,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   // Real-time Supabase subscription so newly dispatched logs appear instantly

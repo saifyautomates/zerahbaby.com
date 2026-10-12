@@ -418,6 +418,9 @@ export function POSTab() {
           }
         }
         const merged = Array.from(map.values());
+        if (JSON.stringify(merged) === JSON.stringify(prev)) {
+          return prev;
+        }
         saveStoredSessionsLocal(merged);
         return merged;
       });

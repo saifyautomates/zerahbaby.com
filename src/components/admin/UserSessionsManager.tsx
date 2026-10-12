@@ -54,7 +54,8 @@ export function UserSessionsManager({
       if (error) throw error;
       return (data || []) as UserActiveSession[];
     },
-    refetchInterval: 15_000, // Live poll every 15s
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   // Revoke single device session mutation
