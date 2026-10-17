@@ -496,6 +496,12 @@ export function buildA4HTML(
   const totalSgst = Math.round(computedItems.reduce((acc, c) => acc + c.lineSgst, 0) * 100) / 100;
   const totalFinal = Math.round(computedItems.reduce((acc, c) => acc + c.lineFinal, 0) * 100) / 100;
   const totalQty = computedItems.reduce((acc, c) => acc + c.qty, 0);
+  const storeCreditUsed = Math.min(
+  Math.max(0, Number(sale.store_credit_used || 0)),
+  Math.max(0, Number(sale.total || 0)),
+);
+const customerPayable =
+  Math.round(Math.max(0, Number(sale.total || 0) - storeCreditUsed) * 100) / 100;
 
   // Distinct rate for column header
   const distinctRates = Array.from(new Set(computedItems.filter((c) => c.gstRate > 0).map((c) => c.gstRate)));
@@ -733,7 +739,25 @@ ${
     }
   </tbody>
 </table>
-
+${
+  storeCreditUsed > 0
+    ? `
+<div style="margin-top: 12px; margin-left: auto; width: 280px; font-size: 12px; color: #000;">
+  <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+    <span>Sale Total (incl. GST)</span>
+    <strong>₹${Number(sale.total).toFixed(2)}</strong>
+  </div>
+  <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+    <span>Store Credit Used</span>
+    <strong>− ₹${storeCreditUsed.toFixed(2)}</strong>
+  </div>
+  <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid #000; font-weight: 800;">
+    <span>Customer Payable</span>
+    <span>₹${customerPayable.toFixed(2)}</span>
+  </div>
+</div>`
+    : ""
+}
 <!-- ── FOOTER ── -->
 <div style="border-top: 1.5px solid #000; margin-top: 24px; padding-top: 14px; display: flex; justify-content: space-between; align-items: flex-start;">
   <div style="display: flex; flex-direction: column; gap: 8px;">
