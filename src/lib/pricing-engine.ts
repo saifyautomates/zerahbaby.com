@@ -134,7 +134,7 @@ export function calculateCouponDiscount(
   }
 
   // Discount can never exceed subtotal and cannot be negative
-  return Math.max(0, Math.min(subtotal, roundCurrencyInt(discount)));
+  return Math.max(0, Math.min(subtotal, roundMoney(discount)));
 }
 
 /**
