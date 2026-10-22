@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/store";
+import { calculatePOSFinancials } from "@/lib/pricing-engine";
 import {
   invalidateCanonicalReportingQueries,
   notifyPOSSaleChanged,
@@ -692,12 +693,20 @@ export function usePlaceOfflineSale() {
       const token = await getNextOfflineToken();
       const operationId = `off_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const saleNumber = `POS-OFF-${Date.now().toString().slice(-6)}`;
-      const subtotal = input.items.reduce(
-        (sum, item) => sum + (item.custom_price || item.price || 0) * item.qty,
-        0,
-      );
-      const discount = calculateDiscount(subtotal, input.discount_type, input.discount_value);
-      const total = Math.max(0, subtotal - discount);
+     const financials = calculatePOSFinancials({
+  items: input.items.map((item) => ({
+    price: item.custom_price ?? item.price ?? 0,
+    mrp: item.custom_price ?? item.price ?? 0,
+    qty: item.qty,
+  })),
+  discountType: input.discount_type,
+  discountValue: input.discount_value,
+  coupon: null,
+});
+
+const subtotal = financials.subtotal;
+const discount = financials.discount;
+const total = financials.finalTotal;
 
       await queueOfflineSale({
         id: operationId,
