@@ -643,16 +643,44 @@ export function POSTab() {
     }
   }, [availableCredit, total, storeCreditApplied, creditTokenInput, creditDismissedManually, customerCreditData]);
 
-  // Dynamic re-clamping if total or available credit changes (e.g. cart quantity changes or invalid voucher)
-  useEffect(() => {
-    if (storeCreditApplied > 0) {
-      if (voucherData && !voucherData.valid) {
-        setStoreCreditApplied(0);
-      } else if (storeCreditApplied > availableCredit || storeCreditApplied > total) {
-        setStoreCreditApplied(Math.min(availableCredit, total));
-      }
+  // Keep applied store credit synchronized with the current payable total.
+// It should automatically move both DOWN and UP when discounts/cart totals change,
+// while still respecting an explicit manual removal by the cashier.
+useEffect(() => {
+  // Invalid voucher must never remain applied.
+  if (voucherData && !voucherData.valid) {
+    if (storeCreditApplied !== 0) {
+      setStoreCreditApplied(0);
     }
-  }, [availableCredit, total, storeCreditApplied, voucherData]);
+    return;
+  }
+
+  // If cashier manually removed the credit, do not auto-apply it again.
+  if (creditDismissedManually) {
+    return;
+  }
+
+  // No valid credit or no payable amount means nothing should be applied.
+  if (availableCredit <= 0 || total <= 0) {
+    if (storeCreditApplied !== 0) {
+      setStoreCreditApplied(0);
+    }
+    return;
+  }
+
+  // Always keep applied credit equal to the maximum usable amount.
+  const desiredCredit = Math.min(availableCredit, total);
+
+  if (Math.abs(storeCreditApplied - desiredCredit) > 0.009) {
+    setStoreCreditApplied(desiredCredit);
+  }
+}, [
+  availableCredit,
+  total,
+  storeCreditApplied,
+  voucherData,
+  creditDismissedManually,
+]);
 
   // Real-time Customer Intelligence Profile (Unified Online + Offline History, Total Spend, Recent Orders)
   const { data: customerIntel } = useQuery({
