@@ -887,6 +887,26 @@ useEffect(() => {
   }, [storeCreditApplied, availableCredit, gstCalculations.saleTotalInclGst]);
 
   const payableAfterCredit = Math.max(0, gstCalculations.saleTotalInclGst - effectiveCreditUsed);
+  const cashBasePayable = useMemo(() => {
+  if (!cashPayableOverrideRef.current) {
+    return payableAfterCredit;
+  }
+
+  const persistedPricing = getPersistablePricing();
+
+  const persistedCreditUsed = Math.min(
+    storeCreditApplied,
+    availableCredit,
+    persistedPricing.total,
+  );
+
+  return Math.max(0, persistedPricing.total - persistedCreditUsed);
+}, [
+  payableAfterCredit,
+  getPersistablePricing,
+  storeCreditApplied,
+  availableCredit,
+]);
   const customerRemainingCredit = Math.max(0, availableCredit - effectiveCreditUsed);
 
   const changeDue = useMemo(() => {
@@ -2951,7 +2971,7 @@ function handleQuickCashTender(cash: number) {
   setCashTendered(cash);
 
   const saved = cashPayableOverrideRef.current;
-  const basePayable = saved?.basePayable ?? payableAfterCredit;
+const basePayable = cashBasePayable;
 
   if (cash + 0.01 < basePayable) {
     if (!cashPayableOverrideRef.current) {
@@ -5011,7 +5031,7 @@ const tabNumber = String(idx + 1);
   setPaymentMethod(method);
 
   if (method === "cash") {
-    setCashTendered(saved?.basePayable ?? payableAfterCredit);
+   setCashTendered(cashBasePayable);
   } else {
     setCashTendered("");
   }
@@ -5039,14 +5059,10 @@ const tabNumber = String(idx + 1);
                               <div className="flex items-center gap-1">
                                 <button
                                   type="button"
-                                  onClick={() =>
-  handleQuickCashTender(
-    cashPayableOverrideRef.current?.basePayable ?? payableAfterCredit,
-  )
-}
+                                  onClick={() => handleQuickCashTender(cashBasePayable)}
                                   className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border hover:bg-muted text-foreground cursor-pointer"
                                 >
-                                  Exact ({formatPrice(cashPayableOverrideRef.current?.basePayable ?? payableAfterCredit)})
+                                  Exact ({formatPrice(cashBasePayable)})
                                 </button>
                                 {[500, 1000, 2000, 5000]
                                   .filter((amt) => amt >= payableAfterCredit)
@@ -5099,7 +5115,7 @@ const tabNumber = String(idx + 1);
   setCashTendered(cash);
 
   const saved = cashPayableOverrideRef.current;
-  const basePayable = saved?.basePayable ?? payableAfterCredit;
+  const basePayable = cashBasePayable;
 
   if (cash + 0.01 < basePayable) {
     if (!cashPayableOverrideRef.current) {
