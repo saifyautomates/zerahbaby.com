@@ -340,6 +340,31 @@ const cashPayableOverrideRef = useRef<{
   discountValue: number;
   finalPaidInput: string;
 } | null>(null);
+  const getPersistablePricing = useCallback(() => {
+  const saved = cashPayableOverrideRef.current;
+
+  const persistedDiscountType = saved?.discountType ?? discountType;
+  const persistedDiscountValue = saved?.discountValue ?? discountValue;
+
+  const financials = calculatePOSFinancials({
+    items: cart.map((i) => ({
+      price: i.price,
+      mrp: i.mrp,
+      qty: i.qty,
+    })),
+    discountType: persistedDiscountType,
+    discountValue: persistedDiscountValue,
+    coupon: null,
+  });
+
+  return {
+    discountType: persistedDiscountType,
+    discountValue: persistedDiscountValue,
+    discountTotal: financials.discount,
+    total: financials.finalTotal,
+  };
+}, [cart, discountType, discountValue]);
+  
   // Held Orders State (Local Storage Resilient)
   const [heldOrders, setHeldOrders] = useState<HeldPOSOrder[]>(loadHeldOrders);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
@@ -447,11 +472,12 @@ const cashPayableOverrideRef = useRef<{
   // Auto-save active POS cart and cashier state to localStorage
   useEffect(() => {
     if (cart.length > 0 && step !== "success") {
+     const persistedPricing = getPersistablePricing();
       const draft: POSDraftState = {
         cart,
         step,
-        discountType,
-        discountValue,
+        discountType: persistedPricing.discountType,
+        discountValue: persistedPricing.discountValue,
         customerMode,
         customerName,
         customerPhone,
@@ -486,6 +512,7 @@ const cashPayableOverrideRef = useRef<{
     paymentMethod,
     storeCreditApplied,
     creditTokenInput,
+    getPersistablePricing,
   ]);
 
   // Prevent accidental page unload / refresh when items are in POS cart
@@ -1219,6 +1246,7 @@ useEffect(() => {
       current.status !== "cancelled" &&
       current.status !== "completed"
     ) {
+      const persistedPricing = getPersistablePricing();
       const updatedCurrent: POSSession = {
         ...current,
         customer_mode: customerMode,
@@ -1227,14 +1255,14 @@ useEffect(() => {
         customer_phone: customerPhone,
         customer_email: customerEmail,
         customer_id: customerId,
-        discount_type: discountType,
-        discount_value: discountValue,
+        discount_type: persistedPricing.discountType,
+        discount_value: persistedPricing.discountValue,
         payment_method: paymentMethod,
         store_credit_applied: storeCreditApplied,
         credit_token_input: creditTokenInput,
         subtotal,
-        discount_total: discountAmount,
-        total,
+       discount_total: persistedPricing.discountTotal,
+       total: persistedPricing.total,
         items: [...cart],
         updated_at: new Date().toISOString(),
       };
@@ -1291,6 +1319,7 @@ useEffect(() => {
       current.status !== "cancelled" &&
       current.status !== "completed"
     ) {
+      const persistedPricing = getPersistablePricing();
       const updatedCurrent: POSSession = {
         ...current,
         customer_mode: customerMode,
@@ -1299,14 +1328,14 @@ useEffect(() => {
         customer_phone: customerPhone,
         customer_email: customerEmail,
         customer_id: customerId,
-        discount_type: discountType,
-        discount_value: discountValue,
+        discount_type: persistedPricing.discountType,
+        discount_value: persistedPricing.discountValue,
         payment_method: paymentMethod,
         store_credit_applied: storeCreditApplied,
         credit_token_input: creditTokenInput,
         subtotal,
-        discount_total: discountAmount,
-        total,
+        discount_total: persistedPricing.discountTotal,
+        total: persistedPricing.total,
         items: [...cart],
         updated_at: new Date().toISOString(),
       };
@@ -1349,128 +1378,144 @@ useEffect(() => {
     toast.success(`New sale session started (${newSess.session_number})`);
     setTimeout(() => scanInputRef.current?.focus(), 50);
   };
+const handleHoldCurrentOrder = () => {
+  if (cart.length === 0) {
+    toast.error("Cannot hold an empty cart");
+    return;
+  }
 
-  const handleHoldCurrentOrder = () => {
-    if (cart.length === 0) {
-      toast.error("Cannot hold an empty cart");
-      return;
-    }
+  const current = sessions.find((s) => s.id === activeSessionId);
+  const sessionNum = current?.session_number
+    ? current.session_number.replace(/^#/, "")
+    : generateSessionNumber(sessions);
+  const custName =
+    customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer";
 
-    const current = sessions.find((s) => s.id === activeSessionId);
-    const sessionNum = current?.session_number
-      ? current.session_number.replace(/^#/, "")
-      : generateSessionNumber(sessions);
-    const custName =
-      customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer";
+  const persistedPricing = getPersistablePricing();
 
-    const heldSession: POSSession = {
-      id:
-        activeSessionId ||
-        (typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `sess_${Date.now()}`),
-      session_number: sessionNum,
-      customer_mode: customerMode,
-      customer_name: custName,
-      customer_phone: customerPhone,
-      customer_email: customerEmail,
-      customer_id: customerId,
-      status: "held",
-      discount_type: discountType,
-      discount_value: discountValue,
-      payment_method: paymentMethod,
-      notes: "",
-      store_credit_applied: storeCreditApplied,
-      credit_token_input: creditTokenInput,
-      subtotal,
-      discount_total: discountAmount,
-      total,
-      items: [...cart],
-      held_at: new Date().toISOString(),
-      created_at: current?.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    savePOSSession(heldSession).catch(() => {});
-
-    // Backward-compatible legacy heldOrders drawer sync
-    const legacyHold: HeldPOSOrder = {
-      id: heldSession.id,
-      timestamp: Date.now(),
-      label: `${custName} • ${totalItems} item${totalItems > 1 ? "s" : ""} • ${formatPrice(total)}`,
-      cart: [...cart],
-      discountType,
-      discountValue,
-      customerMode,
-      customerName,
-      customerPhone,
-      customerEmail,
-      customerId,
-      storeCreditApplied,
-      creditTokenInput,
-      totalAmount: total,
-    };
-    const updatedHeld = [legacyHold, ...heldOrders.filter((h) => h.id !== heldSession.id)];
-    setHeldOrders(updatedHeld);
-    saveHeldOrders(updatedHeld);
-
-    // Switch to another draft session or create a new one
-    const otherDraft = sessions.find((s) => s.id !== activeSessionId && s.status === "draft");
-    if (otherDraft) {
-      const updatedSessions = sessions.map((s) => (s.id === activeSessionId ? heldSession : s));
-      setSessions(updatedSessions);
-      saveStoredSessionsLocal(updatedSessions);
-      setActiveSessionId(otherDraft.id);
-      saveActiveSessionIdLocal(otherDraft.id);
-      setCart(otherDraft.items || []);
-      setCustomerMode(otherDraft.customer_mode || "walkin");
-      setCustomerName(
-        otherDraft.customer_name === "Walk-in Customer" ? "" : otherDraft.customer_name || "",
-      );
-      setCustomerPhone(otherDraft.customer_phone || "");
-      setCustomerEmail(otherDraft.customer_email || "");
-      setCustomerId(otherDraft.customer_id || null);
-      setDiscountType(otherDraft.discount_type || "none");
-      setDiscountValue(otherDraft.discount_value || 0);
-      setStoreCreditApplied(otherDraft.store_credit_applied || 0);
-      setCreditTokenInput(otherDraft.credit_token_input || "");
-      setPaymentMethod(otherDraft.payment_method || "cash");
-      setCashTendered("");
-      cashPayableOverrideRef.current = null;
-      setStep("cart");
-      setSearchQuery("");
-    } else {
-      const newSess = createDefaultSession(undefined, sessions);
-      const updatedSessions = sessions
-        .map((s) => (s.id === activeSessionId ? heldSession : s))
-        .concat(newSess);
-      setSessions(updatedSessions);
-      saveStoredSessionsLocal(updatedSessions);
-      setActiveSessionId(newSess.id);
-      saveActiveSessionIdLocal(newSess.id);
-      setCart([]);
-      setCustomerMode("walkin");
-      setCustomerName("");
-      setCustomerPhone("");
-      setCustomerEmail("");
-      setCustomerId(null);
-      setDiscountType("none");
-      setDiscountValue(0);
-      setStoreCreditApplied(0);
-      setCreditTokenInput("");
-      setPaymentMethod("cash");
-      setCashTendered("");
-      cashPayableOverrideRef.current = null;
-      setStep("cart");
-      setSearchQuery("");
-      savePOSSession(newSess).catch(() => {});
-    }
-
-    toast.success(`Cart placed on Hold (${sessionNum})`, {
-      description: `${custName} • ${totalItems} items saved. Ready for next customer.`,
-    });
-    setTimeout(() => scanInputRef.current?.focus(), 50);
+  const heldSession: POSSession = {
+    id:
+      activeSessionId ||
+      (typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `sess_${Date.now()}`),
+    session_number: sessionNum,
+    customer_mode: customerMode,
+    customer_name: custName,
+    customer_phone: customerPhone,
+    customer_email: customerEmail,
+    customer_id: customerId,
+    status: "held",
+    discount_type: persistedPricing.discountType,
+    discount_value: persistedPricing.discountValue,
+    payment_method: paymentMethod,
+    notes: "",
+    store_credit_applied: storeCreditApplied,
+    credit_token_input: creditTokenInput,
+    subtotal,
+    discount_total: persistedPricing.discountTotal,
+    total: persistedPricing.total,
+    items: [...cart],
+    held_at: new Date().toISOString(),
+    created_at: current?.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
+
+  savePOSSession(heldSession).catch(() => {});
+
+  // Backward-compatible legacy heldOrders drawer sync
+  const legacyHold: HeldPOSOrder = {
+    id: heldSession.id,
+    timestamp: Date.now(),
+    label: `${custName} • ${totalItems} item${totalItems > 1 ? "s" : ""} • ${formatPrice(
+      persistedPricing.total,
+    )}`,
+    cart: [...cart],
+    discountType: persistedPricing.discountType,
+    discountValue: persistedPricing.discountValue,
+    customerMode,
+    customerName,
+    customerPhone,
+    customerEmail,
+    customerId,
+    storeCreditApplied,
+    creditTokenInput,
+    totalAmount: persistedPricing.total,
+  };
+
+  const updatedHeld = [legacyHold, ...heldOrders.filter((h) => h.id !== heldSession.id)];
+  setHeldOrders(updatedHeld);
+  saveHeldOrders(updatedHeld);
+
+  // Switch to another draft session or create a new one
+  const otherDraft = sessions.find((s) => s.id !== activeSessionId && s.status === "draft");
+
+  if (otherDraft) {
+    const updatedSessions = sessions.map((s) =>
+      s.id === activeSessionId ? heldSession : s,
+    );
+
+    setSessions(updatedSessions);
+    saveStoredSessionsLocal(updatedSessions);
+    setActiveSessionId(otherDraft.id);
+    saveActiveSessionIdLocal(otherDraft.id);
+
+    setCart(otherDraft.items || []);
+    setCustomerMode(otherDraft.customer_mode || "walkin");
+    setCustomerName(
+      otherDraft.customer_name === "Walk-in Customer"
+        ? ""
+        : otherDraft.customer_name || "",
+    );
+    setCustomerPhone(otherDraft.customer_phone || "");
+    setCustomerEmail(otherDraft.customer_email || "");
+    setCustomerId(otherDraft.customer_id || null);
+    setDiscountType(otherDraft.discount_type || "none");
+    setDiscountValue(otherDraft.discount_value || 0);
+    setStoreCreditApplied(otherDraft.store_credit_applied || 0);
+    setCreditTokenInput(otherDraft.credit_token_input || "");
+    setPaymentMethod(otherDraft.payment_method || "cash");
+    setCashTendered("");
+    cashPayableOverrideRef.current = null;
+    setStep("cart");
+    setSearchQuery("");
+  } else {
+    const newSess = createDefaultSession(undefined, sessions);
+
+    const updatedSessions = sessions
+      .map((s) => (s.id === activeSessionId ? heldSession : s))
+      .concat(newSess);
+
+    setSessions(updatedSessions);
+    saveStoredSessionsLocal(updatedSessions);
+    setActiveSessionId(newSess.id);
+    saveActiveSessionIdLocal(newSess.id);
+
+    setCart([]);
+    setCustomerMode("walkin");
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerEmail("");
+    setCustomerId(null);
+    setDiscountType("none");
+    setDiscountValue(0);
+    setStoreCreditApplied(0);
+    setCreditTokenInput("");
+    setPaymentMethod("cash");
+    setCashTendered("");
+    cashPayableOverrideRef.current = null;
+    setStep("cart");
+    setSearchQuery("");
+
+    savePOSSession(newSess).catch(() => {});
+  }
+
+  toast.success(`Cart placed on Hold (${sessionNum})`, {
+    description: `${custName} • ${totalItems} items saved. Ready for next customer.`,
+  });
+
+  setTimeout(() => scanInputRef.current?.focus(), 50);
+};
 
   const handleResumeSession = (targetSessionId: string) => {
     const target = sessions.find((s) => s.id === targetSessionId);
@@ -1478,28 +1523,31 @@ useEffect(() => {
 
     // Save current active if has items
     const current = sessions.find((s) => s.id === activeSessionId);
-    if (current && cart.length > 0) {
-      const updatedCurrent: POSSession = {
-        ...current,
-        customer_mode: customerMode,
-        customer_name:
-          customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
-        customer_phone: customerPhone,
-        customer_email: customerEmail,
-        customer_id: customerId,
-        discount_type: discountType,
-        discount_value: discountValue,
-        payment_method: paymentMethod,
-        store_credit_applied: storeCreditApplied,
-        credit_token_input: creditTokenInput,
-        subtotal,
-        discount_total: discountAmount,
-        total,
-        items: [...cart],
-        updated_at: new Date().toISOString(),
-      };
-      savePOSSession(updatedCurrent).catch(() => {});
-    }
+   if (current && cart.length > 0) {
+  const persistedPricing = getPersistablePricing();
+
+  const updatedCurrent: POSSession = {
+    ...current,
+    customer_mode: customerMode,
+    customer_name:
+      customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
+    customer_phone: customerPhone,
+    customer_email: customerEmail,
+    customer_id: customerId,
+    discount_type: persistedPricing.discountType,
+    discount_value: persistedPricing.discountValue,
+    payment_method: paymentMethod,
+    store_credit_applied: storeCreditApplied,
+    credit_token_input: creditTokenInput,
+    subtotal,
+    discount_total: persistedPricing.discountTotal,
+    total: persistedPricing.total,
+    items: [...cart],
+    updated_at: new Date().toISOString(),
+  };
+
+  savePOSSession(updatedCurrent).catch(() => {});
+}
 
     const resumed: POSSession = {
       ...target,
