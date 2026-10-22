@@ -276,7 +276,7 @@ export function calculatePOSFinancials({
     discount = Math.min(remainingSubtotal, dVal);
   }
 
-  discount = Math.max(0, Math.min(remainingSubtotal, roundCurrencyInt(discount)));
+  discount = Math.max(0, Math.min(remainingSubtotal, roundMoney(discount)));
   const finalTotal = Math.max(0, roundMoney(subtotal - couponDiscount - discount));
 
   return {
