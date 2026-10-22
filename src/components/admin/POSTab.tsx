@@ -1340,6 +1340,8 @@ useEffect(() => {
     setCreditTokenInput("");
     setCreditDismissedManually(false);
     setPaymentMethod("cash");
+    setCashTendered("");
+    cashPayableOverrideRef.current = null;
     setStep("cart");
     setSearchQuery("");
 
