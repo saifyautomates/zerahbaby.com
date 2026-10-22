@@ -1274,6 +1274,8 @@ useEffect(() => {
     setCreditTokenInput(resolvedTarget.credit_token_input || "");
     setCreditDismissedManually(false);
     setPaymentMethod(resolvedTarget.payment_method || "cash");
+    setCashTendered("");
+    cashPayableOverrideRef.current = null;
     setStep("cart");
     setSearchQuery("");
     setTimeout(() => scanInputRef.current?.focus(), 50);
