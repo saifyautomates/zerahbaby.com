@@ -27,12 +27,13 @@ export function getOptimizedImageUrl(
   if (!url) return "";
   if (url.startsWith("data:") || url.startsWith("blob:") || url.endsWith(".svg")) return url;
 
-  // Supabase Storage Image Transformation
+  // Serve directly from Supabase Storage CDN to prevent exceeding transformation quotas.
+  // Uploads are already client-compressed to high-efficiency WebP in uploads.ts.
+  if (url.includes("/storage/v1/render/image/public/")) {
+    return url.replace("/storage/v1/render/image/public/", "/storage/v1/object/public/").split("?")[0];
+  }
   if (url.includes("/storage/v1/object/public/")) {
-    return (
-      url.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/") +
-      `?width=${width}&quality=${quality}&resize=contain`
-    );
+    return url.split("?")[0];
   }
   // Unsplash CDN
   if (url.includes("images.unsplash.com")) {
