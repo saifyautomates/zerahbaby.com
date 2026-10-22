@@ -22,7 +22,7 @@
  * 17. Store Credit tender: ₹800 sale with ₹500 credit -> ₹500 credit tender + ₹300 cash payable (Total = ₹800)
  * 18. Store Credit tender: ₹300 purchase with ₹500 credit -> ₹300 credit tender + ₹200 customer credit remaining
  * 19. Cash payment change due calculation (Cash tendered ₹1,000 on ₹650 payable -> ₹350 change due)
- * 20. Cash payment blocked when cash tendered < payable amount
+ * 20. Cash tender below original payable becomes the cashier-selected final payable via discount
  * 21. Multi-field customer search: name, phone, email, and customer UUID
  * 22. Customer Intelligence: total orders, lifetime spend, store credit balance, and recent invoices
  * 23. Hold & Resume Orders: holding active cart clears terminal for next customer; resuming restores all items, coupons, and credit
@@ -397,14 +397,18 @@ test.describe("Production POS Audit & Synchronization — 24 Invariant Tests", (
     expect(changeDue).toBe(350);
   });
 
-  // Test 20: Cash payment blocked when cash tendered is less than payable
-  test("Test 20: Cash payment is blocked when cash tendered < payable", () => {
-    const payable = 800;
-    const cashTendered = 500;
+  // Test 20: Cash entered below the original payable becomes the final payable via discount
+test("Test 20: ₹500 cash on ₹800 payable adjusts sale total to ₹500", () => {
+  const originalPayable = 800;
+  const cashTendered = 500;
 
-    const isValidTender = cashTendered >= payable;
-    expect(isValidTender).toBe(false);
-  });
+  const adjustedSaleTotal = Math.min(originalPayable, cashTendered);
+  const discount = Math.max(0, originalPayable - adjustedSaleTotal);
+
+  expect(adjustedSaleTotal).toBe(500);
+  expect(discount).toBe(300);
+  expect(cashTendered).toBe(adjustedSaleTotal);
+});
 
   // Test 21: Multi-field customer search (name, phone, email, UUID)
   test("Test 21: POS customer search matches across name, phone, email, and UUID", () => {
