@@ -2867,6 +2867,7 @@ useEffect(() => {
     setProductSearch("");
     setScanValue("");
     setCashTendered("");
+    cashPayableOverrideRef.current = null;
     setStoreCreditApplied(0);
     setCreditTokenInput("");
     setCreditDismissedManually(false);
@@ -2898,7 +2899,45 @@ useEffect(() => {
     }
     setTimeout(() => scanInputRef.current?.focus(), 80);
   }
+function handleQuickCashTender(cash: number) {
+  setCashTendered(cash);
 
+  const saved = cashPayableOverrideRef.current;
+  const basePayable = saved?.basePayable ?? payableAfterCredit;
+
+  if (cash + 0.01 < basePayable) {
+    if (!cashPayableOverrideRef.current) {
+      cashPayableOverrideRef.current = {
+        basePayable: payableAfterCredit,
+        discountType,
+        discountValue,
+        finalPaidInput,
+      };
+    }
+
+    const targetSaleTotal = Math.min(
+      subtotal,
+      Math.round((cash + effectiveCreditUsed) * 100) / 100,
+    );
+
+    const newDiscount = Math.max(
+      0,
+      Math.round((subtotal - targetSaleTotal) * 100) / 100,
+    );
+
+    setDiscountType("fixed");
+    setFinalPaidInput(String(targetSaleTotal));
+    setDiscountValue(newDiscount);
+    return;
+  }
+
+  if (saved) {
+    setDiscountType(saved.discountType);
+    setDiscountValue(saved.discountValue);
+    setFinalPaidInput(saved.finalPaidInput);
+    cashPayableOverrideRef.current = null;
+  }
+}
   // Debounce product search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -4912,13 +4951,23 @@ const tabNumber = String(idx + 1);
                               key={method}
                               type="button"
                               onClick={() => {
-                                setPaymentMethod(method);
-                                if (method === "cash") {
-                                  setCashTendered(payableAfterCredit);
-                                } else if (method === "due") {
-                                  setCashTendered("");
-                                }
-                              }}
+  const saved = cashPayableOverrideRef.current;
+
+  if (saved) {
+    setDiscountType(saved.discountType);
+    setDiscountValue(saved.discountValue);
+    setFinalPaidInput(saved.finalPaidInput);
+    cashPayableOverrideRef.current = null;
+  }
+
+  setPaymentMethod(method);
+
+  if (method === "cash") {
+    setCashTendered(saved?.basePayable ?? payableAfterCredit);
+  } else {
+    setCashTendered("");
+  }
+}}
                               className={`flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 text-xs font-bold transition-all cursor-pointer ${
                                 paymentMethod === method
                                   ? "bg-primary text-primary-foreground shadow-2xs ring-2 ring-primary/30"
@@ -4942,10 +4991,14 @@ const tabNumber = String(idx + 1);
                               <div className="flex items-center gap-1">
                                 <button
                                   type="button"
-                                  onClick={() => setCashTendered(payableAfterCredit)}
+                                  onClick={() =>
+  handleQuickCashTender(
+    cashPayableOverrideRef.current?.basePayable ?? payableAfterCredit,
+  )
+}
                                   className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border hover:bg-muted text-foreground cursor-pointer"
                                 >
-                                  Exact ({formatPrice(payableAfterCredit)})
+                                  Exact ({formatPrice(cashPayableOverrideRef.current?.basePayable ?? payableAfterCredit)})
                                 </button>
                                 {[500, 1000, 2000, 5000]
                                   .filter((amt) => amt >= payableAfterCredit)
@@ -4954,7 +5007,7 @@ const tabNumber = String(idx + 1);
                                     <button
                                       key={amt}
                                       type="button"
-                                      onClick={() => setCashTendered(amt)}
+                                      onClick={() => handleQuickCashTender(amt)}
                                       className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border hover:bg-muted text-foreground cursor-pointer"
                                     >
                                       ₹{amt}
