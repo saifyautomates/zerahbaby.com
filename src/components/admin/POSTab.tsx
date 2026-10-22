@@ -1435,6 +1435,8 @@ useEffect(() => {
       setStoreCreditApplied(otherDraft.store_credit_applied || 0);
       setCreditTokenInput(otherDraft.credit_token_input || "");
       setPaymentMethod(otherDraft.payment_method || "cash");
+      setCashTendered("");
+      cashPayableOverrideRef.current = null;
       setStep("cart");
       setSearchQuery("");
     } else {
@@ -1457,6 +1459,8 @@ useEffect(() => {
       setStoreCreditApplied(0);
       setCreditTokenInput("");
       setPaymentMethod("cash");
+      setCashTendered("");
+      cashPayableOverrideRef.current = null;
       setStep("cart");
       setSearchQuery("");
       savePOSSession(newSess).catch(() => {});
