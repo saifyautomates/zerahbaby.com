@@ -3066,10 +3066,7 @@ useEffect(() => {
                 : sess.customer_mode === "walkin"
                   ? "Walk-in"
                   : sess.customer_name || "Walk-in";
-
-              const rawNum = String(sess.session_number || "").replace(/^#/, "");
-              const isLegacy = !rawNum || /^\d{4,}$/.test(rawNum);
-              const tabNumber = isLegacy ? String(idx + 1) : rawNum;
+const tabNumber = String(idx + 1);
 
               const isEditingThis = editingTabId === sess.id;
 
