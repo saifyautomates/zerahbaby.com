@@ -1533,6 +1533,8 @@ useEffect(() => {
     setCreditTokenInput(target.credit_token_input || "");
     setCreditDismissedManually(false);
     setPaymentMethod(target.payment_method || "cash");
+    setCashTendered("");
+    cashPayableOverrideRef.current = null;
     setStep("cart");
     setSearchQuery("");
     setIsHeldOrdersOpen(false);
@@ -1603,6 +1605,8 @@ useEffect(() => {
         setCreditTokenInput(next.credit_token_input || "");
         setCreditDismissedManually(false);
         setPaymentMethod(next.payment_method || "cash");
+        setCashTendered("");
+        cashPayableOverrideRef.current = null;
         setStep("cart");
         setSearchQuery("");
       } else {
@@ -1672,6 +1676,7 @@ useEffect(() => {
     setProductSearch("");
     setScanValue("");
     setCashTendered("");
+    cashPayableOverrideRef.current = null;
     setStoreCreditApplied(0);
     setCreditTokenInput("");
     setCreditDismissedManually(false);
@@ -2546,6 +2551,7 @@ useEffect(() => {
     setStoreCreditApplied(0);
     setCreditTokenInput("");
     setCashTendered("");
+    cashPayableOverrideRef.current = null;
     setCustomerSearchQuery("");
     setProductSearch("");
     setScanValue("");
