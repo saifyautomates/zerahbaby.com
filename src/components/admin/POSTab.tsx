@@ -334,7 +334,12 @@ export function POSTab() {
     return draft?.paymentMethod || "cash";
   });
   const [cashTendered, setCashTendered] = useState<number | "">("");
-
+const cashPayableOverrideRef = useRef<{
+  basePayable: number;
+  discountType: "none" | "percentage" | "fixed";
+  discountValue: number;
+  finalPaidInput: string;
+} | null>(null);
   // Held Orders State (Local Storage Resilient)
   const [heldOrders, setHeldOrders] = useState<HeldPOSOrder[]>(loadHeldOrders);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
@@ -4955,11 +4960,69 @@ useEffect(() => {
                                 <input
                                   type="number"
                                   value={cashTendered}
-                                  onChange={(e) =>
-                                    setCashTendered(
-                                      e.target.value === "" ? "" : Number(e.target.value),
-                                    )
-                                  }
+                                  onChange={(e) => {
+  const raw = e.target.value;
+
+  if (raw === "") {
+    setCashTendered("");
+
+    const saved = cashPayableOverrideRef.current;
+
+    if (saved) {
+      setDiscountType(saved.discountType);
+      setDiscountValue(saved.discountValue);
+      setFinalPaidInput(saved.finalPaidInput);
+      cashPayableOverrideRef.current = null;
+    }
+
+    return;
+  }
+
+  const cash = Number(raw);
+
+  if (!Number.isFinite(cash) || cash < 0) {
+    return;
+  }
+
+  setCashTendered(cash);
+
+  const saved = cashPayableOverrideRef.current;
+  const basePayable = saved?.basePayable ?? payableAfterCredit;
+
+  if (cash + 0.01 < basePayable) {
+    if (!cashPayableOverrideRef.current) {
+      cashPayableOverrideRef.current = {
+        basePayable: payableAfterCredit,
+        discountType,
+        discountValue,
+        finalPaidInput,
+      };
+    }
+
+    const targetSaleTotal = Math.min(
+      subtotal,
+      Math.round((cash + effectiveCreditUsed) * 100) / 100,
+    );
+
+    const newDiscount = Math.max(
+      0,
+      Math.round((subtotal - targetSaleTotal) * 100) / 100,
+    );
+
+    setDiscountType("fixed");
+    setFinalPaidInput(String(targetSaleTotal));
+    setDiscountValue(newDiscount);
+
+    return;
+  }
+
+  if (saved) {
+    setDiscountType(saved.discountType);
+    setDiscountValue(saved.discountValue);
+    setFinalPaidInput(saved.finalPaidInput);
+    cashPayableOverrideRef.current = null;
+  }
+}}
                                   placeholder="Enter cash received (partial payment allowed)"
                                   min={0}
                                   className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-sm font-bold outline-none focus:border-primary transition-all"
