@@ -714,6 +714,7 @@ export function usePlaceOfflineSale() {
         coupon_code: input.coupon_code || null,
         store_credit_used: input.store_credit_used || 0,
         credit_token: input.credit_token || null,
+        cash_tendered: input.cash_tendered,
         items: input.items,
         total,
         subtotal,
