@@ -913,7 +913,59 @@ useEffect(() => {
     if (typeof cashTendered !== "number" || cashTendered < payableAfterCredit) return 0;
     return Math.max(0, cashTendered - payableAfterCredit);
   }, [cashTendered, payableAfterCredit]);
+// Keep cash-final-payable override synchronized when store credit or cart total changes.
+useEffect(() => {
+  const saved = cashPayableOverrideRef.current;
 
+  if (
+    !saved ||
+    paymentMethod !== "cash" ||
+    typeof cashTendered !== "number"
+  ) {
+    return;
+  }
+
+  if (cashTendered + 0.01 >= cashBasePayable) {
+    setDiscountType(saved.discountType);
+    setDiscountValue(saved.discountValue);
+    setFinalPaidInput(saved.finalPaidInput);
+    cashPayableOverrideRef.current = null;
+    return;
+  }
+
+  const targetSaleTotal = Math.min(
+    subtotal,
+    Math.round((cashTendered + effectiveCreditUsed) * 100) / 100,
+  );
+
+  const newDiscount = Math.max(
+    0,
+    Math.round((subtotal - targetSaleTotal) * 100) / 100,
+  );
+
+  if (discountType !== "fixed") {
+    setDiscountType("fixed");
+  }
+
+  if (Math.abs(discountValue - newDiscount) > 0.009) {
+    setDiscountValue(newDiscount);
+  }
+
+  const nextFinalPaidInput = String(targetSaleTotal);
+
+  if (finalPaidInput !== nextFinalPaidInput) {
+    setFinalPaidInput(nextFinalPaidInput);
+  }
+}, [
+  cashTendered,
+  cashBasePayable,
+  effectiveCreditUsed,
+  subtotal,
+  paymentMethod,
+  discountType,
+  discountValue,
+  finalPaidInput,
+]);
   // Derive live authoritative stock for any cart item directly from latest catalog query
   const getLiveItemStock = useCallback(
     (item: POSCartItem): number => {
