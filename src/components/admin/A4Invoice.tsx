@@ -148,9 +148,18 @@ export function getFiscalYearRangeIST(dateInput: Date | string): {
   const fyStartYear = monthNum >= 4 ? yearNum : yearNum - 1;
   const fyEndYear = fyStartYear + 1;
 
-  const startOfFYIST = `${fyStartYear}-04-01T00:00:00+05:30`;
+  let startOfFYIST = `${fyStartYear}-04-01T00:00:00+05:30`;
   const endOfFYIST = `${fyEndYear}-04-01T00:00:00+05:30`;
-  const fyKey = `FY_${fyStartYear}_${fyEndYear}`;
+
+  // Store inauguration epoch:
+  // Store officially started billing on 1st October 2026.
+  // For FY 2026-2027, official store bills start from 2026-10-01 as Bill No - 01.
+  // From 1st April 2027 onwards, standard 1 April to 31 March applies for every year.
+  if (fyStartYear === 2026 && safeDate >= new Date("2026-10-01T00:00:00+05:30")) {
+    startOfFYIST = "2026-10-01T00:00:00+05:30";
+  }
+
+  const fyKey = `FY_${fyStartYear}_${fyEndYear}${startOfFYIST === "2026-10-01T00:00:00+05:30" ? "_OCT" : ""}`;
 
   return { fyStartYear, fyEndYear, startOfFYIST, endOfFYIST, fyKey };
 }
