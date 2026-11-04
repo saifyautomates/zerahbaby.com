@@ -115,11 +115,52 @@ function escapeHtml(str: string): string {
 
 /* ------------------------------------------------------------------ */
 /* ------------------------------------------------------------------ */
-/*  Monthly Bill Number Resolution Helpers                             */
+/*  Financial Year Bill Number Resolution Helpers (1 April - 31 March) */
 /* ------------------------------------------------------------------ */
 
 /**
- * Formats a monthly number (e.g. 1 -> "Bill No - 01", 10 -> "Bill No - 10", 1000 -> "Bill No - 1000")
+ * Resolves the Financial Year range (1st April to 31st March) in IST.
+ * Financial Year ends on 31st March and resets to 01 on 1st April.
+ */
+export function getFiscalYearRangeIST(dateInput: Date | string): {
+  fyStartYear: number;
+  fyEndYear: number;
+  startOfFYIST: string;
+  endOfFYIST: string;
+  fyKey: string;
+} {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  const safeDate = isNaN(date.getTime()) ? new Date() : date;
+
+  const istFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+  });
+  const [yearStr, monthStr] = istFmt.format(safeDate).split("-");
+  const yearNum = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+
+  // Financial Year in India:
+  // Starts on 1st April, ends on 31st March.
+  // Months 4..12 (Apr..Dec) belong to FY (yearNum) to (yearNum + 1)
+  // Months 1..3 (Jan..Mar) belong to FY (yearNum - 1) to (yearNum)
+  const fyStartYear = monthNum >= 4 ? yearNum : yearNum - 1;
+  const fyEndYear = fyStartYear + 1;
+
+  const startOfFYIST = `${fyStartYear}-04-01T00:00:00+05:30`;
+  const endOfFYIST = `${fyEndYear}-04-01T00:00:00+05:30`;
+  const fyKey = `FY_${fyStartYear}_${fyEndYear}`;
+
+  return { fyStartYear, fyEndYear, startOfFYIST, endOfFYIST, fyKey };
+}
+
+export function getFiscalYearKey(dateInput: Date | string): string {
+  return getFiscalYearRangeIST(dateInput).fyKey;
+}
+
+/**
+ * Formats a sequential bill number (e.g. 1 -> "Bill No - 01", 10 -> "Bill No - 10", 1000 -> "Bill No - 1000")
  */
 export function formatMonthlyBillNumber(val: number | string): string {
   if (typeof val === "number" && !isNaN(val) && val > 0) {
@@ -141,13 +182,16 @@ export function formatMonthlyBillNumber(val: number | string): string {
   return "";
 }
 
+export const formatBillNumber = formatMonthlyBillNumber;
+export const formatFiscalBillNumber = formatMonthlyBillNumber;
+
 /**
- * Resolves the 1-based sequential bill number for a sale within its calendar month (IST).
- * 1st sale of month -> "Bill No - 01"
- * 2nd sale of month -> "Bill No - 02"
+ * Resolves the 1-based sequential bill number for a sale within its Financial Year (IST).
+ * 1st sale of FY (starting 1st April) -> "Bill No - 01"
+ * 2nd sale of FY -> "Bill No - 02"
  * ...
- * 1000th sale of month -> "Bill No - 1000"
- * Resets back to "Bill No - 01" at the start of every new month.
+ * 1000th sale of FY -> "Bill No - 1000"
+ * Ends on 31st March, and resets back to "Bill No - 01" on 1st April of every new financial year.
  */
 export async function getMonthlyBillNumberForSale(
   saleDate: Date | string,
@@ -157,16 +201,9 @@ export async function getMonthlyBillNumberForSale(
   const date = saleDate instanceof Date ? saleDate : new Date(saleDate);
   const safeDate = isNaN(date.getTime()) ? new Date() : date;
 
-  const istFmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-  });
-  const [year, month] = istFmt.format(safeDate).split("-");
-  const yearNum = parseInt(year, 10);
-  const monthNum = parseInt(month, 10);
+  const { startOfFYIST, endOfFYIST, fyKey } = getFiscalYearRangeIST(safeDate);
+  const cacheKey = `zerah_fy_bills_${fyKey}`;
 
-  const cacheKey = `zerah_monthly_bills_${year}_${month}`;
   let cache: { map: Record<string, string>; highest: number } = { map: {}, highest: 0 };
   if (typeof window !== "undefined" && window.localStorage) {
     try {
@@ -186,28 +223,23 @@ export async function getMonthlyBillNumberForSale(
   }
 
   try {
-    const startOfMonthIST = `${year}-${month}-01T00:00:00+05:30`;
-    const nextMonthNum = monthNum === 12 ? 1 : monthNum + 1;
-    const nextYearNum = monthNum === 12 ? yearNum + 1 : yearNum;
-    const nextMonthStr = nextMonthNum < 10 ? `0${nextMonthNum}` : `${nextMonthNum}`;
-    const endOfMonthIST = `${nextYearNum}-${nextMonthStr}-01T00:00:00+05:30`;
-
-    const { data: monthSales, error } = await supabase
+    const { data: fySales, error } = await supabase
       .from("offline_sales")
       .select("id, sale_number, created_at")
-      .gte("created_at", startOfMonthIST)
-      .lt("created_at", endOfMonthIST)
+      .gte("created_at", startOfFYIST)
+      .lt("created_at", endOfFYIST)
       .order("created_at", { ascending: true })
-      .order("id", { ascending: true });
+      .order("id", { ascending: true })
+      .range(0, 49999);
 
-    if (!error && monthSales && monthSales.length > 0) {
-      // Sync and lock all month sales into persistent local storage map
-      monthSales.forEach((s, idx) => {
+    if (!error && fySales && fySales.length > 0) {
+      // Sync and lock all financial year sales into persistent local storage map
+      fySales.forEach((s, idx) => {
         const formatted = formatMonthlyBillNumber(idx + 1);
         if (s.id) cache.map[s.id] = formatted;
         if (s.sale_number) cache.map[s.sale_number] = formatted;
       });
-      cache.highest = Math.max(cache.highest || 0, monthSales.length);
+      cache.highest = Math.max(cache.highest || 0, fySales.length);
 
       if (typeof window !== "undefined" && window.localStorage) {
         try {
@@ -219,18 +251,18 @@ export async function getMonthlyBillNumberForSale(
 
       let matchIdx = -1;
       if (saleId) {
-        matchIdx = monthSales.findIndex((s) => s.id === saleId);
+        matchIdx = fySales.findIndex((s) => s.id === saleId);
       }
       if (matchIdx === -1 && saleNumber) {
-        matchIdx = monthSales.findIndex((s) => s.sale_number === saleNumber);
+        matchIdx = fySales.findIndex((s) => s.sale_number === saleNumber);
       }
 
-      const billNum = matchIdx !== -1 ? matchIdx + 1 : monthSales.length;
+      const billNum = matchIdx !== -1 ? matchIdx + 1 : fySales.length;
       return formatMonthlyBillNumber(billNum);
     }
 
     // Network offline or query returned 0 rows:
-    // Safely increment local counter so offline bills never reset to "Bill No - 01"
+    // Safely increment local counter so offline bills never reset to "Bill No - 01" prematurely
     const nextNum = (cache.highest || 0) + 1;
     const nextFormatted = formatMonthlyBillNumber(nextNum);
     cache.highest = nextNum;
@@ -262,6 +294,8 @@ export async function getMonthlyBillNumberForSale(
     return nextFormatted;
   }
 }
+
+export const getFiscalBillNumberForSale = getMonthlyBillNumberForSale;
 
 /* ------------------------------------------------------------------ */
 /*  A4 HTML Builder (self-contained, no Tailwind)                      */
@@ -308,7 +342,7 @@ export function buildA4HTML(
     })
     .toLowerCase();
 
-  // Clean bill number e.g. "Bill No - 01" (resets to 01 at start of each month)
+  // Clean bill number e.g. "Bill No - 01" (resets to 01 at start of financial year: 1st April, ends 31st March)
   let billNoDisplay = (billNoOverride || "").trim();
   if (!billNoDisplay || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(billNoDisplay)) {
     if (sale.monthly_bill_number != null) {
@@ -802,7 +836,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
   const [printFailedReason, setPrintFailedReason] = useState<string | null>(null);
   const [invoicePrinter, setInvoicePrinter] = useState<string>("Default A4 Printer");
 
-  // Monthly sequential bill number (e.g. "Bill No - 01", "Bill No - 02"... resets monthly)
+  // Financial Year sequential bill number (e.g. "Bill No - 01", "Bill No - 02"... 1 April to 31 March)
   const [billNoDisplay, setBillNoDisplay] = useState<string>(() => {
     if (sale.monthly_bill_number != null) {
       return formatMonthlyBillNumber(sale.monthly_bill_number);

@@ -29,7 +29,7 @@ import {
 } from "@/lib/canonical-reporting";
 import { isValidPOSSale, useReportingDateRange, type DatePreset } from "@/lib/financial-reporting";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
-import { A4Invoice } from "@/components/admin/A4Invoice";
+import { A4Invoice, getFiscalYearKey } from "@/components/admin/A4Invoice";
 import {
   BarChart3,
   Receipt,
@@ -2290,28 +2290,14 @@ export function OfflineAnalyticsTab() {
               id: a4InvoiceSale.id,
               sale_number: a4InvoiceSale.sale_number,
               monthly_bill_number: (() => {
-                const targetDate = new Date(a4InvoiceSale.created_at);
-                const targetYM = targetDate.toLocaleDateString("en-CA", {
-                  timeZone: "Asia/Kolkata",
-                  year: "numeric",
-                  month: "2-digit",
-                });
-                const monthSales = (sales ?? [])
-                  .filter((s: any) => {
-                    const d = new Date(s.created_at);
-                    return (
-                      d.toLocaleDateString("en-CA", {
-                        timeZone: "Asia/Kolkata",
-                        year: "numeric",
-                        month: "2-digit",
-                      }) === targetYM
-                    );
-                  })
+                const targetFY = getFiscalYearKey(a4InvoiceSale.created_at);
+                const fySales = (sales ?? [])
+                  .filter((s: any) => getFiscalYearKey(s.created_at) === targetFY)
                   .sort(
                     (a: any, b: any) =>
                       new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
                   );
-                const idx = monthSales.findIndex(
+                const idx = fySales.findIndex(
                   (s: any) =>
                     s.id === a4InvoiceSale.id || s.sale_number === a4InvoiceSale.sale_number,
                 );
