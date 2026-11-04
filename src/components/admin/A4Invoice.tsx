@@ -168,11 +168,11 @@ export function formatMonthlyBillNumber(val: number | string): string {
     return `Bill No - ${padded}`;
   }
   const str = String(val || "").trim();
-  if (/^Bill\s*No\s*-\s*\d{1,5}$/i.test(str)) {
+  if (/^Bill\s*No\s*-\s*\d{1,7}$/i.test(str)) {
     return str;
   }
   // Only accept sequential bill numbers up to 5 digits (e.g. "1", "51", "120") — NEVER long POS reference numbers or timestamps like "26101012421"
-  if (/^\d{1,5}$/.test(str)) {
+  if (/^\d{1,7}$/.test(str)) {
     const num = parseInt(str, 10);
     if (!isNaN(num) && num > 0) {
       const padded = num < 10 ? `0${num}` : `${num}`;
@@ -223,23 +223,32 @@ export async function getMonthlyBillNumberForSale(
   }
 
   try {
-    const { data: fySales, error } = await supabase
-      .from("offline_sales")
-      .select("id, sale_number, created_at")
-      .gte("created_at", startOfFYIST)
-      .lt("created_at", endOfFYIST)
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true })
-      .range(0, 49999);
+    // 1. Resolve exact created_at timestamp for this sale if saleId provided
+    let targetCreatedAt = safeDate.toISOString();
+    if (saleId) {
+      const { data: sRecord } = await supabase
+        .from("offline_sales")
+        .select("created_at")
+        .eq("id", saleId)
+        .maybeSingle();
+      if (sRecord?.created_at) {
+        targetCreatedAt = sRecord.created_at;
+      }
+    }
 
-    if (!error && fySales && fySales.length > 0) {
-      // Sync and lock all financial year sales into persistent local storage map
-      fySales.forEach((s, idx) => {
-        const formatted = formatMonthlyBillNumber(idx + 1);
-        if (s.id) cache.map[s.id] = formatted;
-        if (s.sale_number) cache.map[s.sale_number] = formatted;
-      });
-      cache.highest = Math.max(cache.highest || 0, fySales.length);
+    // 2. Authoritative PostgreSQL exact COUNT within this Financial Year
+    // Scales to 10,000+ sales without hitting PostgREST 1,000-row pagination limits!
+    const { count, error: countErr } = await supabase
+      .from("offline_sales")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startOfFYIST)
+      .lte("created_at", targetCreatedAt);
+
+    if (!countErr && count != null && count > 0) {
+      const formatted = formatMonthlyBillNumber(count);
+      if (saleId) cache.map[saleId] = formatted;
+      if (saleNumber) cache.map[saleNumber] = formatted;
+      cache.highest = Math.max(cache.highest || 0, count);
 
       if (typeof window !== "undefined" && window.localStorage) {
         try {
@@ -249,20 +258,10 @@ export async function getMonthlyBillNumberForSale(
         }
       }
 
-      let matchIdx = -1;
-      if (saleId) {
-        matchIdx = fySales.findIndex((s) => s.id === saleId);
-      }
-      if (matchIdx === -1 && saleNumber) {
-        matchIdx = fySales.findIndex((s) => s.sale_number === saleNumber);
-      }
-
-      const billNum = matchIdx !== -1 ? matchIdx + 1 : fySales.length;
-      return formatMonthlyBillNumber(billNum);
+      return formatted;
     }
 
     // Network offline or query returned 0 rows:
-    // Safely increment local counter so offline bills never reset to "Bill No - 01" prematurely
     const nextNum = (cache.highest || 0) + 1;
     const nextFormatted = formatMonthlyBillNumber(nextNum);
     cache.highest = nextNum;
@@ -344,13 +343,13 @@ export function buildA4HTML(
 
   // Clean bill number e.g. "Bill No - 01" (resets to 01 at start of financial year: 1st April, ends 31st March)
   let billNoDisplay = (billNoOverride || "").trim();
-  if (!billNoDisplay || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(billNoDisplay)) {
+  if (!billNoDisplay || !/^Bill\s*No\s*-\s*\d{1,7}$/i.test(billNoDisplay)) {
     if (sale.monthly_bill_number != null) {
       billNoDisplay = formatMonthlyBillNumber(sale.monthly_bill_number);
     }
-    if (!billNoDisplay || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(billNoDisplay)) {
+    if (!billNoDisplay || !/^Bill\s*No\s*-\s*\d{1,7}$/i.test(billNoDisplay)) {
       const rawSaleNo = (sale.sale_number || "").trim();
-      if (/^Bill\s*No\s*-\s*\d{1,5}$/i.test(rawSaleNo)) {
+      if (/^Bill\s*No\s*-\s*\d{1,7}$/i.test(rawSaleNo)) {
         billNoDisplay = rawSaleNo;
       } else {
         const fmt = formatMonthlyBillNumber(rawSaleNo);
@@ -842,7 +841,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
       return formatMonthlyBillNumber(sale.monthly_bill_number);
     }
     const rawSaleNo = (sale.sale_number || "").trim();
-    if (/^Bill\s*No\s*-\s*\d{1,5}$/i.test(rawSaleNo)) {
+    if (/^Bill\s*No\s*-\s*\d{1,7}$/i.test(rawSaleNo)) {
       return rawSaleNo;
     }
     const fmt = formatMonthlyBillNumber(rawSaleNo);
@@ -888,11 +887,11 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     setPrintFailedReason(null);
     try {
       let effectiveBillNo = billNoDisplay;
-      if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(effectiveBillNo)) {
+      if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,7}$/i.test(effectiveBillNo)) {
         if (sale.monthly_bill_number != null) {
           effectiveBillNo = formatMonthlyBillNumber(sale.monthly_bill_number);
         }
-        if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(effectiveBillNo)) {
+        if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,7}$/i.test(effectiveBillNo)) {
           effectiveBillNo = await getMonthlyBillNumberForSale(
             sale.sale_date || new Date(),
             sale.id,
@@ -932,11 +931,11 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     setPrintStatus("printing");
     try {
       let effectiveBillNo = overrideBillNo || billNoDisplay;
-      if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(effectiveBillNo)) {
+      if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,7}$/i.test(effectiveBillNo)) {
         if (sale.monthly_bill_number != null) {
           effectiveBillNo = formatMonthlyBillNumber(sale.monthly_bill_number);
         }
-        if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(effectiveBillNo)) {
+        if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,7}$/i.test(effectiveBillNo)) {
           effectiveBillNo = await getMonthlyBillNumberForSale(
             sale.sale_date || new Date(),
             sale.id,
