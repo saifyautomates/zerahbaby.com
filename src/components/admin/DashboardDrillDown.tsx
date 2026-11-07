@@ -1653,20 +1653,27 @@ export function DashboardDrillDown({
         if (s === "cancelled" || s === "returned" || s === "refunded" || retStatus === "COMPLETED" || retStatus === "REFUNDED") return;
 
         const orderItems = o.order_items || [];
-        const orderSubtotal = orderItems.reduce(
-          (sum, it) => sum + (it.price || 0) * (it.qty || it.quantity || 1),
+        const activeOrderItems = orderItems
+          .map((item) => {
+            const itemQty = item.qty || item.quantity || 1;
+            const retQty = Number(
+              (item as any).quantity_returned ||
+              (item as any).returned_quantity ||
+              ((item as any).return_status === "RETURNED" || (item as any).return_status === "returned" ? itemQty : 0)
+            );
+            const netQty = Math.max(0, itemQty - retQty);
+            return { item, netQty };
+          })
+          .filter((x) => x.netQty > 0);
+
+        if (activeOrderItems.length === 0) return;
+
+        const activeOrderSubtotal = activeOrderItems.reduce(
+          (sum, it) => sum + (it.item.price || 0) * it.netQty,
           0,
         );
-        orderItems.forEach((item) => {
-          const itemQty = item.qty || item.quantity || 1;
-          const retQty = Number(
-            (item as any).quantity_returned ||
-            (item as any).returned_quantity ||
-            ((item as any).return_status === "RETURNED" || (item as any).return_status === "returned" ? itemQty : 0)
-          );
-          const netQty = Math.max(0, itemQty - retQty);
-          if (netQty <= 0) return;
 
+        activeOrderItems.forEach(({ item, netQty }) => {
           const p =
             (item.product_id ? getProduct(item.product_id) : undefined) ||
             (item.product_slug ? getProduct(item.product_slug) : undefined) ||
@@ -1681,8 +1688,8 @@ export function DashboardDrillDown({
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
           const rawItemTotal = (item.price || 0) * netQty;
           const rev =
-            orderSubtotal > 0
-              ? (rawItemTotal / orderSubtotal) * Number(o.total || 0)
+            activeOrderSubtotal > 0
+              ? (rawItemTotal / activeOrderSubtotal) * Number(o.total || 0)
               : rawItemTotal;
           const cogs = bp * netQty;
           const profit = rev - cogs;
@@ -1719,47 +1726,54 @@ export function DashboardDrillDown({
         const saleItems = s.offline_sale_items || [];
         const isSingleItem = saleItems.length === 1;
         const netSaleTotal = Math.max(0, Number(s.total || 0) - totalReturnedAmt);
-        const saleSubtotal = saleItems.reduce(
-          (sum, it) => sum + (it.price ? it.price * (it.qty || it.quantity || 1) : 0),
+
+        const activeSaleItems = saleItems
+          .map((item) => {
+            const itemQty = Number(item.qty || item.quantity || 1);
+            const retFromItemId = item.id ? profitRetByItemId.get(item.id) || 0 : 0;
+            const sKey = s.id;
+            const retFromProdId = Math.max(
+              item.product_id ? profitRetBySaleAndProd.get(`${sKey}_${item.product_id}`) || 0 : 0,
+              item.product_id && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.product_id}`) || 0 : 0
+            );
+            const retFromSlug = Math.max(
+              item.product_slug ? profitRetBySaleAndProd.get(`${sKey}_${item.product_slug}`) || 0 : 0,
+              item.product_slug && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.product_slug}`) || 0 : 0
+            );
+            const retFromName = Math.max(
+              item.name ? profitRetBySaleAndProd.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0 : 0,
+              item.name && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0 : 0
+            );
+            const retFromSku = Math.max(
+              (item as any).sku ? profitRetBySaleAndProd.get(`${sKey}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0,
+              (item as any).sku && sNum ? profitRetBySaleAndProd.get(`${sNum}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0
+            );
+            const retFromSingle = isSingleItem && totalReturnedAmt > 0 ? itemQty : 0;
+
+            const retQty = Math.max(
+              Number(item.quantity_returned || 0),
+              Number(item.returned_quantity || 0),
+              retFromItemId,
+              retFromProdId,
+              retFromSlug,
+              retFromName,
+              retFromSku,
+              retFromSingle,
+              item.return_status === "RETURNED" || item.return_status === "returned" ? itemQty : 0
+            );
+            const netQty = Math.max(0, itemQty - retQty);
+            return { item, netQty };
+          })
+          .filter((x) => x.netQty > 0);
+
+        if (activeSaleItems.length === 0) return;
+
+        const activeSaleSubtotal = activeSaleItems.reduce(
+          (sum, it) => sum + (it.item.price ? it.item.price * it.netQty : 0),
           0,
         );
 
-        saleItems.forEach((item) => {
-          const itemQty = Number(item.qty || item.quantity || 1);
-          const retFromItemId = item.id ? profitRetByItemId.get(item.id) || 0 : 0;
-          const sKey = s.id;
-          const retFromProdId = Math.max(
-            item.product_id ? profitRetBySaleAndProd.get(`${sKey}_${item.product_id}`) || 0 : 0,
-            item.product_id && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.product_id}`) || 0 : 0
-          );
-          const retFromSlug = Math.max(
-            item.product_slug ? profitRetBySaleAndProd.get(`${sKey}_${item.product_slug}`) || 0 : 0,
-            item.product_slug && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.product_slug}`) || 0 : 0
-          );
-          const retFromName = Math.max(
-            item.name ? profitRetBySaleAndProd.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0 : 0,
-            item.name && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0 : 0
-          );
-          const retFromSku = Math.max(
-            (item as any).sku ? profitRetBySaleAndProd.get(`${sKey}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0,
-            (item as any).sku && sNum ? profitRetBySaleAndProd.get(`${sNum}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0
-          );
-          const retFromSingle = isSingleItem && totalReturnedAmt > 0 ? itemQty : 0;
-
-          const retQty = Math.max(
-            Number(item.quantity_returned || 0),
-            Number(item.returned_quantity || 0),
-            retFromItemId,
-            retFromProdId,
-            retFromSlug,
-            retFromName,
-            retFromSku,
-            retFromSingle,
-            item.return_status === "RETURNED" || item.return_status === "returned" ? itemQty : 0
-          );
-          const netQty = Math.max(0, itemQty - retQty);
-          if (netQty <= 0) return; // Completely returned product: remove from My Cost and Profit analysis!
-
+        activeSaleItems.forEach(({ item, netQty }) => {
           const p =
             (item.product_id ? getProduct(item.product_id) : undefined) ||
             (item.product_slug ? getProduct(item.product_slug) : undefined) ||
@@ -1774,8 +1788,8 @@ export function DashboardDrillDown({
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
           const rawItemTotal = (item.price || 0) * netQty;
           const rev =
-            saleSubtotal > 0
-              ? (rawItemTotal / saleSubtotal) * netSaleTotal
+            activeSaleSubtotal > 0
+              ? (rawItemTotal / activeSaleSubtotal) * netSaleTotal
               : Number(item.subtotal || item.price || netSaleTotal || 0);
           const cogs = bp * netQty;
           const profit = rev - cogs;
@@ -1793,9 +1807,11 @@ export function DashboardDrillDown({
       });
       allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-      // Canonical Aggregate Derivation: Top summary cards MUST strictly match product row totals!
-      const summaryTotalSales = allItems.reduce((acc, it) => acc + it.rev, 0);
-      const summaryMyCost = allItems.reduce((acc, it) => acc + it.cogs, 0);
+      // Canonical Aggregate Derivation: Top summary cards strictly align with canonical metrics and row totals
+      const rowTotalSales = allItems.reduce((acc, it) => acc + it.rev, 0);
+      const rowMyCost = allItems.reduce((acc, it) => acc + it.cogs, 0);
+      const summaryTotalSales = metrics.totalSales > 0 ? metrics.totalSales : rowTotalSales;
+      const summaryMyCost = metrics.myCost > 0 ? metrics.myCost : rowMyCost;
       const summaryTotalProfit = summaryTotalSales - summaryMyCost;
 
       return {
