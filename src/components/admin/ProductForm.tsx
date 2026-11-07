@@ -643,7 +643,7 @@ export function ProductForm({
 
   const [activeColorTab, setActiveColorTab] = useState<string>("ALL");
   const [newColorName, setNewColorName] = useState<string>("");
-  const [matrixSizes, setMatrixSizes] = useState<string[]>(["S", "M", "L"]);
+  const [matrixSizes, setMatrixSizes] = useState<string[]>([]);
   const [customSizeInput, setCustomSizeInput] = useState<string>("");
 
   const handleAddColor = () => {
