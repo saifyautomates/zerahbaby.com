@@ -3023,6 +3023,15 @@ function ProductsTab() {
 
                 try {
                   const res = await saveProductMutation.mutateAsync({ draft });
+                  if (res?.productId) {
+                    qc.setQueryData<Product[]>(["admin-products"], (prev = []) =>
+                      prev.map((p) =>
+                        p.uuid === tempId
+                          ? { ...p, uuid: res.productId, id: res.slug || res.productId }
+                          : p,
+                      ),
+                    );
+                  }
                   invalidate();
                   return res;
                 } catch (error) {
@@ -3035,6 +3044,7 @@ function ProductsTab() {
                 draft,
                 uuid: editing.uuid,
               });
+              setEditing(null);
               invalidate();
               return res;
             }}

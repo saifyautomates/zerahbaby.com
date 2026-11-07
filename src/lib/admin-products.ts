@@ -91,6 +91,12 @@ function useInvalidateCatalogue() {
   return () => invalidateCatalogue(qc);
 }
 
+export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUUID(val?: string | null): boolean {
+  return Boolean(val && UUID_REGEX.test(val.trim()));
+}
+
 /**
  * Resolves a collision-free slug for a product.
  * If the slug is already used by another product, appends -2, -3, etc.
@@ -106,9 +112,11 @@ export async function resolveUniqueProductSlug(
     .replace(/(^-|-$)/g, "");
   if (!clean) clean = "product";
 
+  const safeExcludeId = isValidUUID(excludeId) ? excludeId!.trim() : undefined;
+
   // Check if current clean slug is already taken
   let query = (supabase.from("products" as any) as any).select("id").eq("slug", clean);
-  if (excludeId) query = query.neq("id", excludeId);
+  if (safeExcludeId) query = query.neq("id", safeExcludeId);
   const { data: exactMatch } = await query.maybeSingle();
 
   if (!exactMatch) {
@@ -119,7 +127,7 @@ export async function resolveUniqueProductSlug(
   let prefixQuery = (supabase.from("products" as any) as any)
     .select("slug")
     .ilike("slug", `${clean}%`);
-  if (excludeId) prefixQuery = prefixQuery.neq("id", excludeId);
+  if (safeExcludeId) prefixQuery = prefixQuery.neq("id", safeExcludeId);
   const { data: similar } = await prefixQuery;
 
   const existingSlugs = new Set(((similar as Array<{ slug: string }>) || []).map((s) => s.slug));
@@ -142,13 +150,29 @@ export function useSaveProduct() {
       const uniqueSlug = await resolveUniqueProductSlug(draft.slug || draft.name, uuid);
       row.slug = uniqueSlug;
 
+      // Safely resolve target product ID: gracefully handle optimistic temporary IDs
+      let targetUuid: string | undefined = isValidUUID(uuid) ? uuid!.trim() : undefined;
+
+      if (uuid && !targetUuid) {
+        // Resolve real product in case an optimistic placeholder was passed
+        const { data: existingProd } = await supabase
+          .from("products")
+          .select("id")
+          .or(`sku.eq.${draft.sku},slug.eq.${uniqueSlug}`)
+          .limit(1)
+          .maybeSingle();
+        if (existingProd?.id && isValidUUID(existingProd.id)) {
+          targetUuid = existingProd.id;
+        }
+      }
+
       // Save product
-      let productId = uuid;
-      if (uuid) {
+      let productId = targetUuid;
+      if (targetUuid) {
         const { error } = await supabase
           .from("products")
           .update(row as TablesInsert<"products">)
-          .eq("id", uuid);
+          .eq("id", targetUuid);
         if (error) throw error;
       } else {
         let insertData: { id: string } | null = null;
@@ -376,8 +400,9 @@ export function useSaveProduct() {
               continue;
             }
 
-            const variantId = v.id && v.id.trim() !== "" ? v.id : crypto.randomUUID();
-            if (v.id && v.id.trim() !== "") {
+            const isRealVariantId = isValidUUID(v.id);
+            const variantId = isRealVariantId ? v.id!.trim() : crypto.randomUUID();
+            if (isRealVariantId) {
               existingVariants.push({ ...base, id: variantId });
             } else {
               newVariants.push({ ...base, id: variantId });
@@ -511,6 +536,9 @@ export function useDeleteProduct() {
   const invalidate = useInvalidateCatalogue();
   return useMutation({
     mutationFn: async (uuid: string) => {
+      if (!isValidUUID(uuid)) {
+        return { deleted: 0, archived: 0 };
+      }
       // 1. Try atomic RPC first (handles clean cascade delete or smart auto-archiving)
       const { data: rpcRes, error: rpcErr } = await (
         supabase.rpc as unknown as (
