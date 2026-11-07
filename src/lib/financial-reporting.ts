@@ -662,9 +662,13 @@ export function calculateFinancialMetrics({
         0,
       );
       const bp = historicalBp > 0 ? historicalBp : getProductBuyingPrice(p);
+      const returnBelongsToCurrentPeriodSale = getReturnSaleKeys(r).some((key) =>
+        allCurrentPeriodSaleKeys.has(key),
+      );
+
       // COGS for fully returned sales was already excluded in the sale loop.
-      // Do not subtract those return items from unrelated remaining sales.
-      if (!returnBelongsToFullyReturnedSale) {
+      // Do not subtract return items belonging to other periods from current period sales.
+      if (returnBelongsToCurrentPeriodSale && !returnBelongsToFullyReturnedSale) {
         returnRecordsCogs += bp * retQty;
       }
     });
