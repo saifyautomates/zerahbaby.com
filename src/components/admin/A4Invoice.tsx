@@ -251,7 +251,9 @@ export async function getMonthlyBillNumberForSale(
       .from("offline_sales")
       .select("id", { count: "exact", head: true })
       .gte("created_at", startOfFYIST)
-      .lte("created_at", targetCreatedAt);
+      .lte("created_at", targetCreatedAt)
+      .neq("status", "cancelled")
+      .neq("status", "voided");
 
     if (!countErr && count != null && count > 0) {
       const formatted = formatMonthlyBillNumber(count);
