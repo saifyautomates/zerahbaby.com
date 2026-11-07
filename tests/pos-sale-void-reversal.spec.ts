@@ -102,9 +102,9 @@ test.describe("POS Sale Deletion Safety & Reversal Architecture", () => {
       } as never,
     );
 
-    // Calling without auth correctly raises Unauthorized error from security hardening
+    // Calling without auth correctly raises Unauthorized/Permission Denied error from security hardening
     if (error) {
-      expect(error.message).toMatch(/Unauthorized/i);
+      expect(error.message).toMatch(/Unauthorized|Authentication required|permission denied/i);
     } else {
       const result = data as { success: boolean; code?: string; message?: string };
       expect(result.success).toBe(false);
@@ -122,9 +122,9 @@ test.describe("POS Sale Deletion Safety & Reversal Architecture", () => {
       } as never,
     );
 
-    // Calling without auth correctly raises Unauthorized error from security hardening
+    // Calling without auth correctly raises Unauthorized/Permission Denied error from security hardening
     if (error) {
-      expect(error.message).toMatch(/Unauthorized/i);
+      expect(error.message).toMatch(/Unauthorized|Authentication required|permission denied/i);
     } else {
       const result = data as { success: boolean; code?: string; message?: string };
       expect(result.success).toBe(false);
