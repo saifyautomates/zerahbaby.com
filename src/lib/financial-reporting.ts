@@ -641,10 +641,19 @@ export function calculateFinancialMetrics({
   let totalUnitsReturned = 0;
   let returnRecordsCogs = 0;
   validReturns.forEach((r) => {
+    
+  // Prevent historical returns from reducing the cost
+  // of unrelated sales in the selected reporting period.
+  const isReturnForSaleInPeriod = getReturnSaleKeys(r).some(
+    (key) => allCurrentPeriodSaleKeys.has(key)
+  );
+
     r.offline_return_items?.forEach((item) => {
       const retQty = Number(item.qty || item.quantity || 1);
       totalUnitsReturned += retQty;
-
+      
+    if (!isReturnForSaleInPeriod) return;
+ 
       const returnBelongsToFullyReturnedSale = getReturnSaleKeys(r).some((key) =>
         fullyReturnedSaleKeys.has(key),
       );
