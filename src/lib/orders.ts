@@ -112,11 +112,22 @@ export function useSaveProfile(userId: string | undefined) {
     }) => {
       const { error } = await supabase.from("profiles").update(values).eq("id", userId!);
       if (error) throw error;
+      if (values.phone && userId) {
+        try {
+          await (supabase as any)
+            .from("user_active_sessions")
+            .update({ user_phone: values.phone })
+            .eq("user_id", userId);
+        } catch {
+          // Non-blocking if table update restricted by RLS
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["profile", userId] });
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      qc.invalidateQueries({ queryKey: ["user-device-sessions"] });
     },
   });
 }

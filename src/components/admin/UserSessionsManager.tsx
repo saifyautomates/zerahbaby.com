@@ -120,10 +120,10 @@ export function UserSessionsManager({
   const groupedByUser = useMemo(() => {
     const map = new Map<string, { email: string; phone: string; userId: string; role: string; sessions: UserActiveSession[] }>();
     for (const s of filteredSessions) {
-      const key = s.user_email || s.user_id;
+      const key = s.user_email || s.user_phone || s.user_id;
       if (!map.has(key)) {
         map.set(key, {
-          email: s.user_email || "User without email",
+          email: s.user_email || s.user_phone || "User without email",
           phone: s.user_phone || "",
           userId: s.user_id,
           role: s.user_role,
@@ -278,7 +278,7 @@ export function UserSessionsManager({
                           {group.role === "admin" ? "Administrator" : "Customer"}
                         </span>
                       </div>
-                      {group.phone && (
+                      {group.phone && group.phone !== group.email && (
                         <p className="text-[11px] text-muted-foreground font-medium">
                           Phone: {group.phone}
                         </p>

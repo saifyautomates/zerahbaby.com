@@ -1268,7 +1268,12 @@ export function AdminPage() {
                 {tab === "queries" && (
                   <QueriesTab onOpenOrder={(_ord: string) => setTab("orders")} />
                 )}
-                {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
+                {tab === "admins" && (
+                  <AdminsTab
+                    currentEmail={user?.email ?? profile?.email ?? ""}
+                    currentPhone={user?.phone ?? profile?.phone ?? ""}
+                  />
+                )}
                 {tab === "coupons" && <CouponsTab />}
                 {tab === "reviews" && <ReviewsTab />}
               </Suspense>
@@ -3576,7 +3581,7 @@ function SettingsTab() {
 
 /* ---------------- Admins ---------------- */
 
-function AdminsTab({ currentEmail }: { currentEmail: string }) {
+function AdminsTab({ currentEmail, currentPhone }: { currentEmail: string; currentPhone?: string }) {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
 
@@ -3613,9 +3618,9 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
     },
     onSuccess: (result) => {
       toast.success(
-        result === "granted"
+        result === "active" || result === "granted"
           ? "Admin access granted"
-          : "Added to the admin list — they become admin the next time they sign in",
+          : "Added to the admin list — they become admin when they sign in",
       );
       setEmail("");
       qc.invalidateQueries({ queryKey: ["admin-list"] });
@@ -3638,27 +3643,33 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const trimmedInput = email.trim();
+  const isInputEmail = trimmedInput.includes("@");
+  const phoneDigits = trimmedInput.replace(/\D/g, "");
+  const isInputPhone = !isInputEmail && phoneDigits.length >= 10;
+  const canSubmit = (isInputEmail || isInputPhone) && !grant.isPending;
+
   return (
     <div className="max-w-2xl space-y-6">
       <div className="rounded-2xl border border-border p-5">
         <h2 className="font-display text-lg font-bold">Give admin access</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Add someone by email. If they already have an account they become an admin right away,
-          otherwise access is applied when they sign in with that email.
+          Add someone by email or mobile number. If they already have an account they become an admin right away,
+          otherwise access is applied when they sign in with that email or phone number.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <input
-            type="email"
+            type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="person@email.com"
-            aria-label="Email to make admin"
+            placeholder="person@email.com or +91 98765 43210"
+            aria-label="Email or mobile number to make admin"
             className="min-w-56 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
           <button
             onClick={() => grant.mutate(email)}
-            disabled={!email.includes("@") || grant.isPending}
-            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            disabled={!canSubmit}
+            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 cursor-pointer"
           >
             {grant.isPending ? "Adding…" : "Make admin"}
           </button>
@@ -3669,7 +3680,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Email / Phone</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -3690,20 +3701,33 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {row.email.toLowerCase() === currentEmail.toLowerCase() ? (
-                    <span className="text-xs text-muted-foreground">You</span>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Remove admin access for ${row.email}?`))
-                          revoke.mutate(row.email);
-                      }}
-                      className="rounded-lg border border-border p-2 text-destructive hover:bg-muted"
-                      aria-label={`Remove admin ${row.email}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  )}
+                  {(() => {
+                    const rowVal = row.email.trim().toLowerCase();
+                    const rowPhoneDigits = row.email.replace(/\D/g, "");
+                    const currentPhoneDigits = (currentPhone ?? "").replace(/\D/g, "");
+                    const isSelf =
+                      (Boolean(currentEmail) && rowVal === currentEmail.trim().toLowerCase()) ||
+                      (rowPhoneDigits.length >= 10 &&
+                        currentPhoneDigits.length >= 10 &&
+                        rowPhoneDigits.slice(-10) === currentPhoneDigits.slice(-10));
+
+                    if (isSelf) {
+                      return <span className="text-xs text-muted-foreground">You</span>;
+                    }
+
+                    return (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Remove admin access for ${row.email}?`))
+                            revoke.mutate(row.email);
+                        }}
+                        className="rounded-lg border border-border p-2 text-destructive hover:bg-muted cursor-pointer"
+                        aria-label={`Remove admin ${row.email}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}
