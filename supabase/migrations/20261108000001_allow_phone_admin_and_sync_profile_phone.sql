@@ -82,9 +82,9 @@ $$;
 CREATE OR REPLACE FUNCTION public.register_device_session(
   _device_id text,
   _device_name text,
-  _device_type text,
-  _browser text,
-  _os text,
+  _device_type text DEFAULT 'mobile',
+  _browser text DEFAULT NULL,
+  _os text DEFAULT NULL,
   _ip_address text DEFAULT NULL,
   _city text DEFAULT NULL,
   _region text DEFAULT NULL,
