@@ -641,10 +641,19 @@ export function calculateFinancialMetrics({
   let totalUnitsReturned = 0;
   let returnRecordsCogs = 0;
   validReturns.forEach((r) => {
+    
+  // Prevent historical returns from reducing the cost
+  // of unrelated sales in the selected reporting period.
+  const isReturnForSaleInPeriod = getReturnSaleKeys(r).some(
+    (key) => allCurrentPeriodSaleKeys.has(key)
+  );
+
     r.offline_return_items?.forEach((item) => {
       const retQty = Number(item.qty || item.quantity || 1);
       totalUnitsReturned += retQty;
-
+      
+    if (!isReturnForSaleInPeriod) return;
+ 
       const returnBelongsToFullyReturnedSale = getReturnSaleKeys(r).some((key) =>
         fullyReturnedSaleKeys.has(key),
       );
@@ -957,3 +966,66 @@ export function calculateStockValuation(
     activeCatalogCount,
   };
 }
+
+
+/**
+ * Allocate a POS sale's remaining paid amount across active
+ * product rows. Guarantees exact reconciliation to paise.
+ */
+export function allocateNetSaleRevenue(
+  weights: number[],
+  netSaleTotal: number,
+): number[] {
+  if (weights.length === 0) return [];
+
+  const amount = Number(netSaleTotal);
+  const targetCents = Number.isFinite(amount)
+    ? Math.max(0, Math.round(amount * 100))
+    : 0;
+
+  const cleanWeights = weights.map((weight) =>
+    Number.isFinite(Number(weight)) && Number(weight) > 0
+      ? Number(weight)
+      : 0,
+  );
+
+  const weightTotal = cleanWeights.reduce(
+    (sum, weight) => sum + weight,
+    0,
+  );
+
+  const normalizedWeights =
+    weightTotal > 0
+      ? cleanWeights
+      : cleanWeights.map(() => 1);
+
+  const denominator =
+    weightTotal > 0 ? weightTotal : cleanWeights.length;
+
+  const shares = normalizedWeights.map((weight, index) => {
+    const exact = (weight / denominator) * targetCents;
+    const cents = Math.floor(exact);
+
+    return {
+      index,
+      cents,
+      remainder: exact - cents,
+    };
+  });
+
+  const remaining =
+    targetCents -
+    shares.reduce((sum, share) => sum + share.cents, 0);
+
+  const ranked = [...shares].sort(
+    (a, b) =>
+      b.remainder - a.remainder || a.index - b.index,
+  );
+
+  for (let i = 0; i < remaining; i++) {
+    ranked[i].cents += 1;
+  }
+
+  return shares.map((share) => share.cents / 100);
+}
+
