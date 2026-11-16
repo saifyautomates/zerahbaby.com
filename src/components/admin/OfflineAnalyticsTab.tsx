@@ -28,6 +28,7 @@ import {
   type CanonicalPOSSale,
 } from "@/lib/canonical-reporting";
 import { isValidPOSSale, useReportingDateRange, type DatePreset } from "@/lib/financial-reporting";
+import { safeLower } from "@/lib/utils";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { A4Invoice, getFiscalYearKey } from "@/components/admin/A4Invoice";
 import {
@@ -407,9 +408,9 @@ export function OfflineAnalyticsTab() {
     const bySku = new Map<string, (typeof products)[0]>();
     const byName = new Map<string, (typeof products)[0]>();
     for (const p of products) {
-      if (p.id) byId.set(p.id, p);
-      if (p.sku) bySku.set(p.sku.toLowerCase().trim(), p);
-      if (p.name) byName.set(p.name.toLowerCase().trim(), p);
+      if (p.id) byId.set(String(p.id), p);
+      if (p.sku) bySku.set(safeLower(p.sku), p);
+      if (p.name) byName.set(safeLower(p.name), p);
     }
     return { byId, bySku, byName };
   }, [products]);
@@ -420,14 +421,14 @@ export function OfflineAnalyticsTab() {
     sku?: string | null;
     name?: string | null;
   }) => {
-    if (item.product_id && productLookup.byId.has(item.product_id)) {
-      return productLookup.byId.get(item.product_id);
+    if (item.product_id && productLookup.byId.has(String(item.product_id))) {
+      return productLookup.byId.get(String(item.product_id));
     }
-    if (item.sku && productLookup.bySku.has(item.sku.toLowerCase().trim())) {
-      return productLookup.bySku.get(item.sku.toLowerCase().trim());
+    if (item.sku && productLookup.bySku.has(safeLower(item.sku))) {
+      return productLookup.bySku.get(safeLower(item.sku));
     }
-    if (item.name && productLookup.byName.has(item.name.toLowerCase().trim())) {
-      return productLookup.byName.get(item.name.toLowerCase().trim());
+    if (item.name && productLookup.byName.has(safeLower(item.name))) {
+      return productLookup.byName.get(safeLower(item.name));
     }
     return null;
   };
@@ -436,7 +437,9 @@ export function OfflineAnalyticsTab() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "upi" | "card">("all");
+  const [paymentFilter, setPaymentFilter] = useState<
+    "all" | "active" | "returned" | "cash" | "upi" | "card"
+  >("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | "all">(50);
 
@@ -528,7 +531,7 @@ export function OfflineAnalyticsTab() {
     return_status?: string | null;
     offline_sale_items?: Array<SaleItem> | null;
   }) => {
-    const statusLower = (s.return_status || "").toLowerCase().trim();
+    const statusLower = safeLower(s.return_status);
     if (
       statusLower === "returned" ||
       statusLower === "fully_returned" ||
@@ -564,32 +567,37 @@ export function OfflineAnalyticsTab() {
     // Strict date range filter based on canonical reporting bounds
     list = list.filter((s) => inCurrentPeriod(s.created_at));
 
-    // Strictly exclude cancelled/voided transactions AND fully returned transactions
+    // Strictly exclude cancelled/voided transactions
     list = list.filter(
       (s) =>
         s.status !== "cancelled" &&
         s.status !== "voided" &&
         !s.is_voided &&
-        !(s.notes && s.notes.startsWith("[VOIDED]")) &&
-        !isSaleFullyReturned(s),
+        !(s.notes && s.notes.startsWith("[VOIDED]")),
     );
 
-    if (paymentFilter !== "all") {
+    if (paymentFilter === "active") {
+      list = list.filter((s) => !isSaleFullyReturned(s));
+    } else if (paymentFilter === "returned") {
+      list = list.filter((s) => isSaleFullyReturned(s));
+    } else if (paymentFilter !== "all") {
       list = list.filter((s) => s.payment_method === paymentFilter);
     }
 
-    const q = deferredSearchQuery.trim().toLowerCase();
+    const q = safeLower(deferredSearchQuery);
     if (!q) return list;
 
     return list.filter((s) => {
-      const matchesSaleNumber = (s.sale_number || "").toLowerCase().includes(q);
-      const matchesCustomerName = (s.customer_name || "").toLowerCase().includes(q);
-      const matchesCustomerPhone = (s.customer_phone || "").toLowerCase().includes(q);
-      const matchesCustomerEmail = (s.customer_email || "").toLowerCase().includes(q);
+      const matchesSaleNumber = safeLower(s.sale_number).includes(q);
+      const matchesCustomerName = safeLower(s.customer_name).includes(q);
+      const matchesCustomerPhone = safeLower(s.customer_phone).includes(q);
+      const matchesCustomerEmail = safeLower(s.customer_email).includes(q);
       const matchesToken = s.pos_token_number != null && String(s.pos_token_number).includes(q);
-      const matchesItem = getActiveSaleItems(s).some(
-        (item: SaleItem) =>
-          (item.name || "").toLowerCase().includes(q) || (item.sku || "").toLowerCase().includes(q),
+      const allItems = (s.offline_sale_items ?? []);
+      const matchesItem = allItems.some(
+        (item: any) =>
+          safeLower(item.name || item.product_name).includes(q) ||
+          safeLower(item.sku).includes(q),
       );
 
       return (
@@ -666,11 +674,13 @@ export function OfflineAnalyticsTab() {
   );
 
   const getSaleNetRevenue = (sale: Sale | CanonicalPOSSale) => {
-    const status = String(sale.return_status || "").toLowerCase().trim();
+    const status = safeLower(sale.return_status);
     if (status === "returned" || status === "fully_returned" || status === "completed") {
       return 0;
     }
-    return Math.max(0, Number(sale.total || 0) - Math.max(0, Number(sale.returned_amount || 0)));
+    const creditUsed = Math.max(0, Number((sale as any).store_credit_used || 0));
+    const returnedAmt = Math.max(0, Number(sale.returned_amount || 0));
+    return Math.max(0, Number(sale.total || 0) - creditUsed - returnedAmt);
   };
 
   // All completed sales in period before returns (gross baseline).
@@ -696,21 +706,29 @@ export function OfflineAnalyticsTab() {
     (sum, sale) => sum + getSaleNetRevenue(sale),
     0,
   );
+  const periodStoreCreditUsed = periodActiveSales.reduce(
+    (sum, sale) => sum + Math.max(0, Number((sale as any).store_credit_used || 0)),
+    0,
+  );
   const recordedPeriodReturnsAmount = returnsList
     .filter((ret) => inCurrentPeriod(ret.created_at))
     .reduce((sum, ret) => sum + Number(ret.refund_total || ret.refund_amount || 0), 0);
   // Include legacy sale-level return markers even if their old return rows are missing.
   const periodReturnsAmount = Math.max(
     recordedPeriodReturnsAmount,
-    Math.max(0, grossSalesRevenue - totalSalesRevenue),
+    Math.max(0, grossSalesRevenue - totalSalesRevenue - periodStoreCreditUsed),
   );
   const totalSalesCount = periodActiveSales.length;
+  const returnedSalesCount = useMemo(
+    () => periodAllCompletedSales.filter((s) => isSaleFullyReturned(s as unknown as Sale)).length,
+    [periodAllCompletedSales, returnsBySaleItemId, returnsBySaleAndItemKey],
+  );
   const cashSales = periodActiveSales.filter((s) => s.payment_method === "cash");
   const upiSales = periodActiveSales.filter((s) => s.payment_method === "upi");
   const cardSales = periodActiveSales.filter((s) => s.payment_method === "card");
   const otherSales = periodActiveSales.filter(
     (sale) => !["cash", "upi", "card", "due", "store_credit"].includes(
-      String(sale.payment_method || "").toLowerCase().trim(),
+      safeLower(sale.payment_method),
     ),
   );
 
@@ -718,7 +736,7 @@ export function OfflineAnalyticsTab() {
   // paid/due sale. Older records have amount_paid=0 despite payment_status="paid";
   // preserve their known paid status without misclassifying pending/partial records.
   const getCollectedAmount = (sale: Sale | CanonicalPOSSale) => {
-    const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+    const paymentStatus = safeLower(sale.payment_status);
     const recordedPaid = Math.max(0, Number(sale.amount_paid || 0));
     const creditUsed = Math.max(0, Number(sale.store_credit_used || 0));
     if (paymentStatus === "paid" && recordedPaid === 0) {
@@ -729,7 +747,7 @@ export function OfflineAnalyticsTab() {
 
   const dueStatuses = new Set(["pending", "unpaid", "partial", "partially_paid", "due"]);
   const dueSales = periodActiveSales.filter((sale) => {
-    const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+    const paymentStatus = safeLower(sale.payment_status);
     if (!dueStatuses.has(paymentStatus)) return false;
     return (
       Number(sale.total || 0) -
@@ -1086,9 +1104,11 @@ export function OfflineAnalyticsTab() {
             {formatPrice(totalSalesRevenue)}
           </p>
           <div className="mt-1 space-y-0.5 text-xs">
-            {periodReturnsAmount > 0 && (
+            {(periodReturnsAmount > 0 || periodStoreCreditUsed > 0) && (
               <p className="text-amber-600 dark:text-amber-400 font-semibold">
-                Gross: {formatPrice(grossSalesRevenue)} • Returns: −{formatPrice(periodReturnsAmount)}
+                Gross: {formatPrice(grossSalesRevenue)}
+                {periodStoreCreditUsed > 0 ? ` • Credits: −${formatPrice(periodStoreCreditUsed)}` : ""}
+                {periodReturnsAmount > 0 ? ` • Returns: −${formatPrice(periodReturnsAmount)}` : ""}
               </p>
             )}
             {totalDiscount > 0 && (
@@ -1284,7 +1304,11 @@ export function OfflineAnalyticsTab() {
 
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             {[
-              { id: "all", label: `All (${periodActiveSales.length})` },
+              { id: "all", label: `All (${periodAllCompletedSales.length})` },
+              { id: "active", label: `Active (${periodActiveSales.length})` },
+              ...(returnedSalesCount > 0
+                ? [{ id: "returned", label: `🔄 Returned (${returnedSalesCount})` }]
+                : []),
               { id: "cash", label: `💵 Cash (${cashSales.length})` },
               { id: "upi", label: `📱 UPI (${upiSales.length})` },
               { id: "card", label: `💳 Card (${cardSales.length})` },
@@ -1293,7 +1317,9 @@ export function OfflineAnalyticsTab() {
                 key={tab.id}
                 type="button"
                 onClick={() =>
-                  setPaymentFilter(tab.id as "all" | "cash" | "upi" | "card")
+                  setPaymentFilter(
+                    tab.id as "all" | "active" | "returned" | "cash" | "upi" | "card",
+                  )
                 }
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
                   paymentFilter === tab.id
@@ -1313,7 +1339,7 @@ export function OfflineAnalyticsTab() {
             <div className="flex items-center gap-2">
               <RotateCcw className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
               <span>
-                Sales table strictly displays active sales. Returned products &amp; orders are tracked under <strong>Return History</strong> ({formatPrice(periodReturnsAmount)} returned in period).
+                <strong>{returnedSalesCount} returned sale{returnedSalesCount === 1 ? "" : "s"}</strong> ({formatPrice(periodReturnsAmount)}) included in ledger with 🔄 Returned status. Detailed return voucher history is under <strong>Return History</strong>.
               </span>
             </div>
             <button
@@ -1524,6 +1550,14 @@ export function OfflineAnalyticsTab() {
                               Partially Returned
                             </span>
                           )}
+                          {isSaleFullyReturned(sale) && (
+                            <span
+                              className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30"
+                              title="This sale was fully returned"
+                            >
+                              🔄 Returned
+                            </span>
+                          )}
                           {(sale.status === "voided" || sale.is_voided) && (
                             <span
                               className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
@@ -1593,43 +1627,60 @@ export function OfflineAnalyticsTab() {
                       {/* Product thumbnails & names */}
                       <td className="px-5 py-4 whitespace-normal">
                         <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[280px]">
-                          {getActiveSaleItems(sale).map((item: SaleItem, i: number) => {
-                            const prod = resolveProduct(item);
-                            const itemImg = imageFor(
-                              prod?.category || "clothing",
-                              (prod as { product_images?: { public_url: string }[] })
-                                ?.product_images?.[0]?.public_url,
-                            );
-                            return (
-                              <div key={i} className="flex items-center gap-2 text-xs">
-                                <img
-                                  src={itemImg}
-                                  alt={item.name}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="size-8 rounded-md object-cover border border-border shrink-0 bg-muted"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = clothing;
-                                  }}
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p
-                                    className="font-bold text-foreground truncate text-xs leading-tight"
-                                    title={item.name}
-                                  >
-                                    {item.name}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground">
-                                    <span className="font-semibold text-primary">x{item.qty}</span>{" "}
-                                    • {formatPrice(item.price)}
-                                  </p>
+                          {(() => {
+                            const isFullyReturned = isSaleFullyReturned(sale);
+                            const activeItems = getActiveSaleItems(sale);
+                            const itemsToShow =
+                              activeItems.length > 0
+                                ? activeItems
+                                : (sale.offline_sale_items ?? []);
+                            if (itemsToShow.length === 0) {
+                              return <span className="text-muted-foreground text-xs">—</span>;
+                            }
+                            return itemsToShow.map((item: any, i: number) => {
+                              const prod = resolveProduct(item);
+                              const itemImg = imageFor(
+                                prod?.category || "clothing",
+                                (prod as { product_images?: { public_url: string }[] })
+                                  ?.product_images?.[0]?.public_url,
+                              );
+                              const itemQty = Number(item.quantity_sold ?? item.qty ?? 1);
+                              const itemPrice = Number(item.price || item.unit_selling_price || 0);
+                              return (
+                                <div key={i} className="flex items-center gap-2 text-xs">
+                                  <img
+                                    src={itemImg}
+                                    alt={item.name}
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="size-8 rounded-md object-cover border border-border shrink-0 bg-muted"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = clothing;
+                                    }}
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <p
+                                      className={`font-bold truncate text-xs leading-tight ${
+                                        isFullyReturned ? "text-muted-foreground line-through" : "text-foreground"
+                                      }`}
+                                      title={item.name}
+                                    >
+                                      {item.name}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      <span className="font-semibold text-primary">x{itemQty}</span>{" "}
+                                      • {formatPrice(itemPrice)}
+                                      {isFullyReturned && (
+                                        <span className="ml-1 text-purple-600 dark:text-purple-400 font-bold">
+                                          (Returned)
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                          {getActiveSaleItems(sale).length === 0 && (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
+                              );
+                            });
+                          })()}
                         </div>
                       </td>
                       <td className="px-5 py-4">
@@ -1689,6 +1740,20 @@ export function OfflineAnalyticsTab() {
                       </td>
                       <td className="px-5 py-4 text-right font-bold text-primary">
                         {(() => {
+                          const isFullyReturned = isSaleFullyReturned(sale);
+                          if (isFullyReturned) {
+                            return (
+                              <div>
+                                <span className="line-through text-muted-foreground font-medium">
+                                  {formatPrice(Number(sale.total))}
+                                </span>
+                                <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                                  Returned ({formatPrice(Number(sale.returned_amount || sale.total))})
+                                </div>
+                              </div>
+                            );
+                          }
+
                           const activeItems = getActiveSaleItems(sale);
                           const isPartiallyReturned =
                             sale.return_status === "partially_returned" ||

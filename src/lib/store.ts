@@ -21,13 +21,23 @@ import {
 export { fallbackImages };
 
 export const imageFor = (
-  category: string,
+  category: unknown,
   url?: string | null,
-  product?: { name?: string; slug?: string; sku?: string },
+  product?: { name?: string | null; slug?: string | null; sku?: string | null },
 ) => {
-  if (url && url.trim().length > 0) return url;
-  const cat = (category || "").toLowerCase().trim();
-  return fallbackImages[cat] ?? fallbackImages.clothing;
+  if (url && typeof url === "string" && url.trim().length > 0) return url;
+  let catStr = "clothing";
+  if (category && typeof category === "object") {
+    const obj = category as Record<string, unknown>;
+    const imgUrl = (obj.image || obj.image_url || obj.imageUrl) as string | undefined;
+    if (imgUrl && typeof imgUrl === "string" && imgUrl.trim().length > 0) return imgUrl;
+    if (typeof obj.category === "string" && obj.category.trim().length > 0) {
+      catStr = obj.category.toLowerCase().trim();
+    }
+  } else if (typeof category === "string" && category.trim().length > 0) {
+    catStr = category.toLowerCase().trim();
+  }
+  return fallbackImages[catStr] ?? fallbackImages.clothing;
 };
 
 import type {

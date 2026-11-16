@@ -17,7 +17,10 @@ import {
   Truck,
   Tag,
   RotateCcw,
+  Coins,
 } from "lucide-react";
+import { CustomerCreditsDrillDown } from "./CustomerCreditsDrillDown";
+import { CashOutstandingDrillDownView } from "./CashOutstandingDrillDownView";
 import { useState, useMemo, useCallback, Suspense, lazy } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -32,6 +35,7 @@ import {
 } from "@/lib/admin-products";
 import { format } from "date-fns";
 import { Link } from "@tanstack/react-router";
+import { safeLower, safeUpper } from "@/lib/utils";
 import { safeLazy } from "@/lib/safe-lazy";
 import {
   calculateFinancialMetrics,
@@ -108,7 +112,10 @@ export interface DrillDownPOSSale {
   returned_amount?: number | null;
   payment_status?: string | null;
   amount_paid?: number | null;
+  payment_method?: string | null;
   store_credit_used?: number | null;
+  credit_token_used?: string | null;
+  notes?: string | null;
   is_voided?: boolean | null;
   total?: number;
   customer_name?: string;
@@ -215,9 +222,9 @@ function OrdersChannelSubView({
   combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (search.trim()) {
-    const q = search.toLowerCase();
+    const q = safeLower(search);
     combined = combined.filter(
-      (i) => i.id.toLowerCase().includes(q) || i.customer.toLowerCase().includes(q),
+      (i) => safeLower(i.id).includes(q) || safeLower(i.customer).includes(q),
     );
   }
 
@@ -409,8 +416,13 @@ function OrdersChannelSubView({
                       {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right font-black text-foreground">
-                    {formatPrice(item.total)}
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <p className="font-black text-foreground">{formatPrice(item.total)}</p>
+                    {Boolean((item as any).store_credit_used && (item as any).store_credit_used > 0) && (
+                      <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                        Bill {formatPrice((item as any).grossTotal || item.total)} • -{formatPrice((item as any).store_credit_used || 0)} credit
+                      </p>
+                    )}
                   </td>
                 </tr>
               );
@@ -470,10 +482,8 @@ function SalesChannelDrillDown({
   const onlineOrders = useMemo(() => {
     return validOrders
       .filter((o) => {
-        const s = (o.status || "").toLowerCase();
-        const retStatus = (
-          ((o as unknown as Record<string, unknown>).return_status as string) || ""
-        ).toUpperCase();
+        const s = safeLower(o.status);
+        const retStatus = safeUpper((o as unknown as Record<string, unknown>).return_status);
         if (
           s === "cancelled" ||
           s === "returned" ||
@@ -492,6 +502,8 @@ function SalesChannelDrillDown({
         customer: o.full_name || o.email || "Guest",
         source: "Online" as const,
         total: o.total || 0,
+        grossTotal: o.total || 0,
+        store_credit_used: 0,
       }));
   }, [validOrders]);
 
@@ -530,11 +542,11 @@ function SalesChannelDrillDown({
             map.set(k, (map.get(k) || 0) + retQty);
           }
           if (item.name) {
-            const k = `${sKey}_${item.name.toLowerCase().trim()}`;
+            const k = `${sKey}_${safeLower(item.name)}`;
             map.set(k, (map.get(k) || 0) + retQty);
           }
           if (item.sku) {
-            const k = `${sKey}_${item.sku.toLowerCase().trim()}`;
+            const k = `${sKey}_${safeLower(item.sku)}`;
             map.set(k, (map.get(k) || 0) + retQty);
           }
         }
@@ -570,10 +582,12 @@ function SalesChannelDrillDown({
       qty: number;
       price: number;
       total: number;
+      store_credit_used?: number;
+      gross_total?: number;
     }> = [];
     validOrders.forEach((o) => {
-      const s = (o.status || "").toLowerCase();
-      const retStatus = (((o as unknown as Record<string, unknown>).return_status as string) || "").toUpperCase();
+      const s = safeLower(o.status);
+      const retStatus = safeUpper((o as unknown as Record<string, unknown>).return_status);
       if (s === "cancelled" || s === "returned" || s === "refunded" || retStatus === "COMPLETED" || retStatus === "REFUNDED") return;
 
       if (o.order_items && o.order_items.length > 0) {
@@ -623,7 +637,7 @@ function SalesChannelDrillDown({
   const offlineSales = useMemo(() => {
     return validPosSales
       .filter((s) => {
-        const retStatus = (s.return_status || "").toLowerCase().trim();
+        const retStatus = safeLower(s.return_status);
         const sNum = s.sale_number || "";
         const refundFromList = Math.max(
           refundsBySaleId.get(s.id) || 0,
@@ -656,12 +670,12 @@ function SalesChannelDrillDown({
               item.product_slug && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${item.product_slug}`) || 0) : 0
             );
             const retFromName = Math.max(
-              item.name ? (returnsBySaleAndProduct.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0) : 0,
-              item.name && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0) : 0
+              item.name ? (returnsBySaleAndProduct.get(`${sKey}_${safeLower(item.name)}`) || 0) : 0,
+              item.name && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${safeLower(item.name)}`) || 0) : 0
             );
             const retFromSku = Math.max(
-              item.sku ? (returnsBySaleAndProduct.get(`${sKey}_${item.sku.toLowerCase().trim()}`) || 0) : 0,
-              item.sku && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${item.sku.toLowerCase().trim()}`) || 0) : 0
+              item.sku ? (returnsBySaleAndProduct.get(`${sKey}_${safeLower(item.sku)}`) || 0) : 0,
+              item.sku && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${safeLower(item.sku)}`) || 0) : 0
             );
             const retFromSingle = (isSingleItem && totalReturnedAmt > 0) ? itemQty : 0;
 
@@ -690,7 +704,8 @@ function SalesChannelDrillDown({
           sNum ? refundsBySaleId.get(sNum) || 0 : 0
         );
         const returnedAmount = Math.max(Number((s as any).returned_amount || 0), refundFromList);
-        const netTotal = Math.max(0, Number(s.total || 0) - returnedAmount);
+        const creditUsed = Number(s.store_credit_used || 0);
+        const netTotal = Math.max(0, Number(s.total || 0) - creditUsed - returnedAmount);
         return {
           sale_id: s.id,
           date: s.created_at,
@@ -698,6 +713,8 @@ function SalesChannelDrillDown({
           customer: s.customer_name || "Walk-in Customer",
           source: "POS" as const,
           total: netTotal,
+          grossTotal: Number(s.total || 0),
+          store_credit_used: creditUsed,
         };
       });
   }, [validPosSales, refundsBySaleId, returnsBySaleItemId, returnsBySaleAndProduct]);
@@ -713,9 +730,11 @@ function SalesChannelDrillDown({
       qty: number;
       price: number;
       total: number;
+      store_credit_used?: number;
+      gross_total?: number;
     }> = [];
     validPosSales.forEach((s) => {
-      const retStatus = (s.return_status || "").toLowerCase().trim();
+      const retStatus = safeLower(s.return_status);
       const sNum = s.sale_number || "";
       const refundFromList = Math.max(
         refundsBySaleId.get(s.id) || 0,
@@ -749,12 +768,12 @@ function SalesChannelDrillDown({
             item.product_slug && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${item.product_slug}`) || 0) : 0
           );
           const retFromName = Math.max(
-            item.name ? (returnsBySaleAndProduct.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0) : 0,
-            item.name && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0) : 0
+            item.name ? (returnsBySaleAndProduct.get(`${sKey}_${safeLower(item.name)}`) || 0) : 0,
+            item.name && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${safeLower(item.name)}`) || 0) : 0
           );
           const retFromSku = Math.max(
-            item.sku ? (returnsBySaleAndProduct.get(`${sKey}_${item.sku.toLowerCase().trim()}`) || 0) : 0,
-            item.sku && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${item.sku.toLowerCase().trim()}`) || 0) : 0
+            item.sku ? (returnsBySaleAndProduct.get(`${sKey}_${safeLower(item.sku)}`) || 0) : 0,
+            item.sku && sNum ? (returnsBySaleAndProduct.get(`${sNum}_${safeLower(item.sku)}`) || 0) : 0
           );
           const retFromSingle = (isSingleItem && totalReturnedAmt > 0) ? itemQty : 0;
 
@@ -791,7 +810,8 @@ function SalesChannelDrillDown({
         });
       } else {
         if (totalReturnedAmt >= Number(s.total || 0)) return; // Skip returned sale!
-        const netTotal = Math.max(0, Number(s.total || 0) - totalReturnedAmt);
+        const creditUsed = Number(s.store_credit_used || 0);
+        const netTotal = Math.max(0, Number(s.total || 0) - creditUsed - totalReturnedAmt);
         items.push({
           sale_id: s.id,
           date: s.created_at,
@@ -802,6 +822,8 @@ function SalesChannelDrillDown({
           qty: 1,
           price: netTotal,
           total: netTotal,
+          store_credit_used: creditUsed,
+          gross_total: Number(s.total || 0),
         });
       }
     });
@@ -831,9 +853,10 @@ function SalesChannelDrillDown({
         Number((sale as any).returned_amount || 0),
         refundFromList,
       );
+      const creditUsed = Number(sale.store_credit_used || 0);
       const netSaleTotal = Math.max(
         0,
-        Number(sale.total || 0) - totalReturnedAmount,
+        Number(sale.total || 0) - creditUsed - totalReturnedAmount,
       );
 
       const precision = Number.isInteger(netSaleTotal) ? 1 : 0.01;
@@ -854,6 +877,8 @@ function SalesChannelDrillDown({
             position === indexes.length - 1
               ? Number(netSaleTotal.toFixed(2))
               : 0;
+          items[index].store_credit_used = creditUsed;
+          items[index].gross_total = Number(sale.total || 0);
         });
         continue;
       }
@@ -883,6 +908,8 @@ function SalesChannelDrillDown({
         items[allocation.index].total = Number(
           (allocation.units * precision).toFixed(2),
         );
+        items[allocation.index].store_credit_used = creditUsed;
+        items[allocation.index].gross_total = Number(sale.total || 0);
       });
     }
 
@@ -950,6 +977,7 @@ function SalesChannelDrillDown({
   const offlineTotalRev = type === "revenue" ? offlineRevenueTotal : offlineOrdersTotal;
   const grossTotalRev = onlineTotalRev + offlineTotalRev;
   const netTotalRev = grossTotalRev;
+  const totalStoreCreditUsed = validPosSales.reduce((acc, s) => acc + Number(s.store_credit_used || 0), 0);
 
   if (type === "orders") {
     return (
@@ -978,6 +1006,8 @@ function SalesChannelDrillDown({
     qty: number;
     price: number;
     total: number;
+    store_credit_used?: number;
+    gross_total?: number;
   }> = [];
   if (activeChannel === "online") combinedRev = onlineRevenueItems;
   else if (activeChannel === "offline") combinedRev = offlineRevenueItems;
@@ -986,8 +1016,8 @@ function SalesChannelDrillDown({
   combinedRev.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (search.trim()) {
-    const q = search.toLowerCase();
-    combinedRev = combinedRev.filter((i) => i.product.toLowerCase().includes(q));
+    const q = safeLower(search);
+    combinedRev = combinedRev.filter((i) => safeLower(i.product).includes(q));
   }
 
   return (
@@ -1063,22 +1093,35 @@ function SalesChannelDrillDown({
           </div>
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Total Sales Summary
+              Total Sales Summary (Collected)
             </h4>
             <p className="text-sm font-bold text-foreground mt-0.5">
-              Online Sales ({formatPrice(onlineTotalRev)}) + Offline POS Sales (
+              Online Sales ({formatPrice(onlineTotalRev)}) + Offline POS Collected (
               {formatPrice(offlineTotalRev)}) ={" "}
               <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-base">
-                Total Sales {formatPrice(grossTotalRev)}
+                Total Collected {formatPrice(grossTotalRev)}
               </span>
             </p>
+            {totalStoreCreditUsed > 0 && (
+              <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mt-1 flex items-center gap-1.5">
+                <Coins className="size-3.5" />
+                <span>
+                  Store Credit / Vouchers Redeemed: <strong>{formatPrice(totalStoreCreditUsed)}</strong> (Total Merchandise Sold: {formatPrice(grossTotalRev + totalStoreCreditUsed)})
+                </span>
+              </p>
+            )}
           </div>
         </div>
         <div className="text-right">
-          <span className="text-xs font-bold text-muted-foreground">All Channels Total: </span>
+          <span className="text-xs font-bold text-muted-foreground">Total Collected: </span>
           <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
             {formatPrice(grossTotalRev)}
           </span>
+          {totalStoreCreditUsed > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              +{formatPrice(totalStoreCreditUsed)} Store Credit Redeemed
+            </p>
+          )}
         </div>
       </div>
 
@@ -1212,11 +1255,19 @@ function SalesChannelDrillDown({
                 </td>
                 <td className="px-6 py-4 text-right font-bold text-foreground">{item.qty}</td>
                 <td
-                  className={`px-6 py-4 text-right font-black ${item.total < 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}
+                  className={`px-6 py-4 text-right ${item.total < 0 ? "text-amber-600 dark:text-amber-400 font-black" : "text-foreground"}`}
                 >
-                  {item.total < 0
-                    ? `${formatPrice(Math.abs(item.total))} (Credit)`
-                    : formatPrice(item.total)}
+                  <p className="font-black">
+                    {item.total < 0
+                      ? `${formatPrice(Math.abs(item.total))} (Credit)`
+                      : formatPrice(item.total)}
+                  </p>
+                  {Boolean(item.store_credit_used && item.store_credit_used > 0) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 mt-0.5">
+                      <Coins className="size-2.5" />
+                      {formatPrice(item.store_credit_used || 0)} credit applied
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -1240,6 +1291,7 @@ export function DashboardDrillDown({
   dateRangeText,
   orders,
   posSales,
+  allPosSales,
   offlineReturns = [],
   products,
 }: {
@@ -1248,6 +1300,7 @@ export function DashboardDrillDown({
   dateRangeText: string;
   orders: DrillDownOrder[];
   posSales: DrillDownPOSSale[];
+  allPosSales?: DrillDownPOSSale[];
   offlineReturns?: DrillDownReturn[];
   products: DrillDownProduct[];
 }) {
@@ -1257,14 +1310,14 @@ export function DashboardDrillDown({
     colorClass,
     renderContent,
   } = useMemo(() => {
-    const getProduct = (slugOrIdOrName: string) => {
-      const key = (slugOrIdOrName || "").trim().toLowerCase();
+    const getProduct = (slugOrIdOrName: unknown) => {
+      const key = safeLower(slugOrIdOrName);
       if (!key) return undefined;
       return products.find(
         (p) =>
-          p.id?.toLowerCase() === key ||
-          p.slug?.toLowerCase() === key ||
-          p.name?.trim().toLowerCase() === key,
+          safeLower(p.id) === key ||
+          safeLower(p.slug) === key ||
+          safeLower(p.name) === key,
       );
     };
 
@@ -1337,6 +1390,20 @@ export function DashboardDrillDown({
             validPosSales={validPosSales}
             validReturns={validReturns}
             products={products}
+          />
+        ),
+      };
+    }
+
+    if (type === "credits" || type === "store_credit") {
+      return {
+        title: "Available Customer Credits",
+        icon: Coins,
+        colorClass: "text-indigo-600 bg-indigo-50",
+        renderContent: () => (
+          <CustomerCreditsDrillDown
+            onBack={onBack}
+            dateRangeText={dateRangeText}
           />
         ),
       };
@@ -1416,159 +1483,16 @@ export function DashboardDrillDown({
     }
 
     if (type === "cash") {
-      const pendingCodOrders = orders
-        .filter((order) => {
-          const paymentStatus = String(order.payment_status || "").toLowerCase().trim();
-          const paymentMethod = String(order.payment_method || "").toLowerCase().trim();
-          const orderStatus = String(order.status || "").toLowerCase().trim();
-          const isCancelled = ["cancelled", "refunded", "failed"].includes(orderStatus);
-          const isPaid = ["paid", "completed"].includes(paymentStatus);
-          if (isCancelled || isPaid) return false;
-          const isCod =
-            paymentMethod.includes("cod") ||
-            paymentMethod.includes("cash on delivery") ||
-            paymentMethod === "cash_on_delivery";
-          const isPendingPayment = ["pending", "partial", "partially_paid", "unpaid", "due"].includes(
-            paymentStatus,
-          );
-          return isCod || isPendingPayment;
-        })
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      const pendingPosDues = posSales
-        .filter((sale) => {
-          const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
-          const paymentMethod = String((sale as any).payment_method || "").toLowerCase().trim();
-          const returnStatus = String(sale.return_status || "").toLowerCase().trim();
-          const saleStatus = String(sale.status || "").toLowerCase().trim();
-          if (
-            sale.is_voided ||
-            ["cancelled", "voided", "failed", "sync_failed"].includes(saleStatus)
-          ) {
-            return false;
-          }
-          if (["returned", "fully_returned"].includes(returnStatus)) return false;
-          const due =
-            Number(sale.total || 0) -
-            Number(sale.returned_amount || 0) -
-            Number(sale.amount_paid || 0) -
-            Number(sale.store_credit_used || 0);
-          const isDueStatus = ["pending", "unpaid", "partial", "partially_paid", "due"].includes(
-            paymentStatus,
-          );
-          const isDueMethod = paymentMethod === "due" || paymentMethod === "credit";
-          return due > 0 && (isDueStatus || isDueMethod);
-        })
-        .map((sale) => ({
-          ...sale,
-          balance_due: Math.max(
-            0,
-            Number(sale.total || 0) -
-              Number(sale.returned_amount || 0) -
-              Number(sale.amount_paid || 0) -
-              Number(sale.store_credit_used || 0),
-          ),
-        }))
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      const totalCodAmount = pendingCodOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-      const totalPosDueAmount = pendingPosDues.reduce((sum, s) => sum + Number(s.balance_due || 0), 0);
-      const totalCashOutstanding = totalCodAmount + totalPosDueAmount;
-
       return {
         title: "Cash Outstanding (COD & POS Due)",
         icon: DollarSign,
         colorClass: "text-rose-600 bg-rose-50",
         renderContent: () => (
-          <div className="w-full overflow-hidden">
-            {(pendingCodOrders.length > 0 || pendingPosDues.length > 0) && (
-              <div className="p-4 sm:p-5 border-b border-border bg-card/60 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
-                    <DollarSign className="size-5" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                      Total Cash Outstanding
-                    </p>
-                    <p className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400">
-                      {formatPrice(totalCashOutstanding)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 font-bold border border-blue-500/20">
-                    Online COD: {pendingCodOrders.length} orders ({formatPrice(totalCodAmount)})
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/20">
-                    Offline POS Due: {pendingPosDues.length} sales ({formatPrice(totalPosDueAmount)})
-                  </span>
-                </div>
-              </div>
-            )}
-            <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[680px] text-left text-sm text-muted-foreground">
-                <thead className="bg-muted text-xs uppercase text-foreground">
-                  <tr>
-                    <th className="px-6 py-3">Date</th>
-                    <th className="px-6 py-3">Order / Sale ID</th>
-                    <th className="px-6 py-3">Customer Details</th>
-                    <th className="px-6 py-3">Source</th>
-                    <th className="px-6 py-3 text-right">Pending Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingCodOrders.map((o) => (
-                    <tr key={`order-${o.id}`} className="border-b bg-background hover:bg-muted/50">
-                      <td className="px-6 py-4">{format(new Date(o.created_at), "MMM d, yyyy")}</td>
-                      <td className="px-6 py-4 font-medium text-foreground">
-                        {o.order_number || (o.invoice_no ? `#${o.invoice_no}` : `#${(o.id || "").substring(0, 8).toUpperCase()}`)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-foreground">{o.full_name || o.email || "Customer"}</p>
-                        <p className="text-xs">{o.phone || ""}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-bold text-blue-700 dark:text-blue-300">
-                          Online COD
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-bold text-rose-600">
-                        {formatPrice(o.total || 0)}
-                      </td>
-                    </tr>
-                  ))}
-                  {pendingPosDues.map((sale) => (
-                    <tr key={`pos-${sale.id}`} className="border-b bg-background hover:bg-muted/50">
-                      <td className="px-6 py-4">{format(new Date(sale.created_at), "MMM d, yyyy")}</td>
-                      <td className="px-6 py-4 font-medium text-foreground">
-                        {sale.sale_number || `#${sale.id.substring(0, 8).toUpperCase()}`}
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-foreground">{sale.customer_name || "Walk-in Customer"}</p>
-                        <p className="text-xs">{sale.customer_phone || ""}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
-                          Offline POS Due
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-bold text-rose-600">
-                        {formatPrice(sale.balance_due)}
-                      </td>
-                    </tr>
-                  ))}
-                  {pendingCodOrders.length === 0 && pendingPosDues.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center">
-                        No pending cash outstanding.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <CashOutstandingDrillDownView
+            orders={orders}
+            posSales={posSales}
+            dateRangeText={dateRangeText}
+          />
         ),
       };
     }
@@ -1625,11 +1549,11 @@ export function DashboardDrillDown({
               profitRetBySaleAndProd.set(k, (profitRetBySaleAndProd.get(k) || 0) + retQty);
             }
             if (item.name) {
-              const k = `${sKey}_${item.name.toLowerCase().trim()}`;
+              const k = `${sKey}_${safeLower(item.name)}`;
               profitRetBySaleAndProd.set(k, (profitRetBySaleAndProd.get(k) || 0) + retQty);
             }
             if ((item as any).sku) {
-              const k = `${sKey}_${(item as any).sku.toLowerCase().trim()}`;
+              const k = `${sKey}_${safeLower((item as any).sku)}`;
               profitRetBySaleAndProd.set(k, (profitRetBySaleAndProd.get(k) || 0) + retQty);
             }
           }
@@ -1648,8 +1572,8 @@ export function DashboardDrillDown({
       }> = [];
 
       validOrders.forEach((o) => {
-        const s = (o.status || "").toLowerCase();
-        const retStatus = (((o as unknown as Record<string, unknown>).return_status as string) || "").toUpperCase();
+        const s = safeLower(o.status);
+        const retStatus = safeUpper((o as unknown as Record<string, unknown>).return_status);
         if (s === "cancelled" || s === "returned" || s === "refunded" || retStatus === "COMPLETED" || retStatus === "REFUNDED") return;
 
         const orderItems = o.order_items || [];
@@ -1707,7 +1631,7 @@ export function DashboardDrillDown({
       });
 
       validPosSales.forEach((s) => {
-        const retStatus = (s.return_status || "").toLowerCase().trim();
+        const retStatus = safeLower(s.return_status);
         const sNum = s.sale_number || "";
         const refundFromList = Math.max(
           profitRefundsBySale.get(s.id) || 0,
@@ -1741,12 +1665,12 @@ export function DashboardDrillDown({
               item.product_slug && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.product_slug}`) || 0 : 0
             );
             const retFromName = Math.max(
-              item.name ? profitRetBySaleAndProd.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0 : 0,
-              item.name && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0 : 0
+              item.name ? profitRetBySaleAndProd.get(`${sKey}_${safeLower(item.name)}`) || 0 : 0,
+              item.name && sNum ? profitRetBySaleAndProd.get(`${sNum}_${safeLower(item.name)}`) || 0 : 0
             );
             const retFromSku = Math.max(
-              (item as any).sku ? profitRetBySaleAndProd.get(`${sKey}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0,
-              (item as any).sku && sNum ? profitRetBySaleAndProd.get(`${sNum}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0
+              (item as any).sku ? profitRetBySaleAndProd.get(`${sKey}_${safeLower((item as any).sku)}`) || 0 : 0,
+              (item as any).sku && sNum ? profitRetBySaleAndProd.get(`${sNum}_${safeLower((item as any).sku)}`) || 0 : 0
             );
             const retFromSingle = isSingleItem && totalReturnedAmt > 0 ? itemQty : 0;
 
@@ -2008,7 +1932,7 @@ export function DashboardDrillDown({
         (o) =>
           o.status === "cancelled" ||
           o.payment_status === "failed" ||
-          (o.payment_method?.toLowerCase() !== "cod" && o.payment_status !== "paid"),
+          (safeLower(o.payment_method) !== "cod" && o.payment_status !== "paid"),
       );
 
       return {
@@ -2080,6 +2004,22 @@ export function DashboardDrillDown({
       ),
     };
   }, [type, orders, posSales, offlineReturns, products]);
+
+  if (type === "credits" || type === "store_credit") {
+    return (
+      <div className="animate-in slide-in-from-right-4 duration-300">
+        <CustomerCreditsDrillDown
+          onBack={onBack}
+          dateRangeText={dateRangeText}
+          posSales={posSales}
+          allPosSales={allPosSales || posSales}
+          orders={orders}
+          products={products}
+          offlineReturns={offlineReturns}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in slide-in-from-right-4 duration-300">
@@ -2234,13 +2174,13 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
     if (filter === "low" && !(stock > 0 && stock <= lowAt)) return false;
     if (filter === "out" && stock !== 0) return false;
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = safeLower(search);
       return (
-        p.name.toLowerCase().includes(q) ||
-        (p.brand || "").toLowerCase().includes(q) ||
-        (p.sku || "").toLowerCase().includes(q) ||
-        (p.category || "").toLowerCase().includes(q) ||
-        (p.slug || "").toLowerCase().includes(q)
+        safeLower(p.name).includes(q) ||
+        safeLower(p.brand).includes(q) ||
+        safeLower(p.sku).includes(q) ||
+        safeLower(p.category).includes(q) ||
+        safeLower(p.slug).includes(q)
       );
     }
     return true;
