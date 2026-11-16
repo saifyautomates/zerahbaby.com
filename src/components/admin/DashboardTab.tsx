@@ -60,7 +60,6 @@ import {
   Receipt,
   Truck,
   Ban,
-  Coins,
 } from "lucide-react";
 import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,12 +67,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { type OfflineSale } from "@/lib/pos";
 import { initPerformanceMetrics } from "@/utils/performanceMetrics";
-import { safeLazy } from "@/lib/safe-lazy";
-import { Suspense } from "react";
-
-const LazyDashboardDrillDown = safeLazy(() =>
-  import("./DashboardDrillDown").then((m) => ({ default: m.DashboardDrillDown })),
-);
+import { DashboardDrillDown } from "./DashboardDrillDown";
 import { AdminDashboardSkeleton } from "@/components/ui/Skeletons";
 import {
   calculateFinancialMetrics,
@@ -85,7 +79,6 @@ import {
   type DatePreset,
 } from "@/lib/financial-reporting";
 import { useCanonicalPOSSales, CANONICAL_POS_SALES_KEY } from "@/lib/canonical-reporting";
-import { safeLower, safeUpper } from "@/lib/utils";
 
 type WebsiteVisitor = {
   created_at: string;
@@ -404,114 +397,8 @@ export function DashboardTab({
     },
   });
 
-  // Live Store Credits Intel
-  const {
-    data: posCustomersWithCredit = [],
-    isLoading: posCreditLoading,
-  } = useQuery({
-    queryKey: ["admin-pos-customers-credit"],
-    staleTime: 1000 * 60 * 2,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pos_customers")
-        .select("id, name, phone, email, store_credit_balance, store_credit, updated_at");
-      if (error) return [];
-      return data ?? [];
-    },
-  });
-
-  const {
-    data: profilesWithCredit = [],
-    isLoading: profilesCreditLoading,
-  } = useQuery({
-    queryKey: ["admin-profiles-credit"],
-    staleTime: 1000 * 60 * 2,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, phone, email, store_credit_balance, updated_at");
-      if (error) return [];
-      return data ?? [];
-    },
-  });
-
-  const customerCreditIntel = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; phone: string; balance: number }>();
-
-    for (const c of posCustomersWithCredit) {
-      const bal = Number(c.store_credit_balance || (c as any).store_credit || 0);
-      const digits = (c.phone || "").replace(/\D/g, "").slice(-10);
-      const key = digits || `id:${c.id}`;
-      map.set(key, {
-        id: c.id,
-        name: c.name?.trim() || "Customer",
-        phone: c.phone || "",
-        balance: Math.max(0, bal),
-      });
-    }
-
-    for (const p of profilesWithCredit) {
-      const bal = Number(p.store_credit_balance || 0);
-      const digits = (p.phone || "").replace(/\D/g, "").slice(-10);
-      const key = digits || `id:${p.id}`;
-      const existing = map.get(key);
-      if (existing) {
-        existing.balance = Math.max(existing.balance, Math.max(0, bal));
-        if ((!existing.name || existing.name === "Customer") && p.full_name) {
-          existing.name = p.full_name.trim();
-        }
-      } else {
-        map.set(key, {
-          id: p.id,
-          name: p.full_name?.trim() || "Customer",
-          phone: p.phone || "",
-          balance: Math.max(0, bal),
-        });
-      }
-    }
-
-    let voucherCount = 0;
-    let totalReturnCredits = 0;
-    for (const r of offlineReturns) {
-      const refundAmount = Number(r.refund_amount || (r as any).refund_total || 0);
-      const creditUsed = Number((r as any).credit_used || 0);
-      const remaining = Math.max(0, refundAmount - creditUsed);
-      const token = String((r as any).credit_token || "").trim();
-      const status = safeUpper((r as any).credit_token_status || "ACTIVE");
-      if (remaining > 0 && status !== "VOIDED" && status !== "CONSUMED") {
-        voucherCount++;
-        totalReturnCredits += remaining;
-        const digits = ((r as any).customer_phone || "").replace(/\D/g, "").slice(-10);
-        const key = digits || `cust:${(r as any).customer_id || token || r.id}`;
-        const existing = map.get(key);
-        if (existing) {
-          if (existing.balance < remaining) {
-            existing.balance = Math.max(existing.balance, remaining);
-          }
-        } else {
-          map.set(key, {
-            id: (r as any).customer_id || r.id,
-            name: (r as any).customer_name?.trim() || "Return Customer",
-            phone: (r as any).customer_phone || "",
-            balance: remaining,
-          });
-        }
-      }
-    }
-
-    const customersWithCredit = Array.from(map.values()).filter((c) => c.balance > 0);
-    const totalAvailable = customersWithCredit.reduce((sum, c) => sum + c.balance, 0);
-
-    return {
-      totalAvailable,
-      totalReturnCredits,
-      count: customersWithCredit.length,
-      voucherCount,
-    };
-  }, [posCustomersWithCredit, profilesWithCredit, offlineReturns]);
-
   const isAnyLoading =
-    ordersLoading || posLoading || visitorsLoading || productsLoading || returnsLoading || posCreditLoading || profilesCreditLoading;
+    ordersLoading || posLoading || visitorsLoading || productsLoading || returnsLoading;
   const isAnyError = ordersError || posError || visitorsError || productsError || returnsError;
 
   // Authoritative KPI Metrics Calculation via Centralized Financial Reporting Engine
@@ -627,7 +514,6 @@ export function DashboardTab({
       returnedItemsCount: currMetrics.returnedItemsCount,
       storeCreditOutstanding: currMetrics.storeCreditOutstanding,
       storeCreditUsedInSales: currMetrics.storeCreditUsedInSales,
-      storeCreditUsedAllTime: allTimeMetrics.storeCreditUsedInSales,
       chartDays,
     };
   }, [
@@ -640,15 +526,6 @@ export function DashboardTab({
     inPrevPeriod,
     compareLabel,
   ]);
-
-  const periodCreditSalesCount = useMemo(() => {
-    return posSales.filter(
-      (s) =>
-        inCurrentPeriod(s.created_at) &&
-        Number(s.store_credit_used || 0) > 0 &&
-        !s.is_voided,
-    ).length;
-  }, [posSales, inCurrentPeriod]);
 
   // Payment Breakdown for Donut Chart
   const paymentBreakdown = useMemo(() => {
@@ -676,8 +553,6 @@ export function DashboardTab({
         customer: o.full_name || o.email || "Online Buyer",
         phone: o.phone || "",
         amount: Number(o.total || 0),
-        grossAmount: Number(o.total || 0),
-        store_credit_used: 0,
         payment_method: o.payment_method || "Online",
         status: o.status || "placed",
         source: "Online" as const,
@@ -725,11 +600,11 @@ export function DashboardTab({
             retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
           }
           if (item.name) {
-            const k = `${sKey}_${safeLower(item.name)}`;
+            const k = `${sKey}_${item.name.toLowerCase().trim()}`;
             retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
           }
           if ((item as any).sku) {
-            const k = `${sKey}_${safeLower((item as any).sku)}`;
+            const k = `${sKey}_${(item as any).sku.toLowerCase().trim()}`;
             retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
           }
         }
@@ -738,7 +613,7 @@ export function DashboardTab({
 
     const posMapped = posSales
       .filter((s) => {
-        const statusLower = safeLower(s.return_status);
+        const statusLower = (s.return_status || "").toLowerCase().trim();
         const sNum = s.sale_number || "";
         const refundFromList = Math.max(
           refundsBySale.get(s.id) || 0,
@@ -780,12 +655,12 @@ export function DashboardTab({
             item.product_slug && sNum ? retBySaleAndProd.get(`${sNum}_${item.product_slug}`) || 0 : 0,
           );
           const retFromName = Math.max(
-            item.name ? retBySaleAndProd.get(`${sKey}_${safeLower(item.name)}`) || 0 : 0,
-            item.name && sNum ? retBySaleAndProd.get(`${sNum}_${safeLower(item.name)}`) || 0 : 0,
+            item.name ? retBySaleAndProd.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0 : 0,
+            item.name && sNum ? retBySaleAndProd.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0 : 0,
           );
           const retFromSku = Math.max(
-            (item as any).sku ? retBySaleAndProd.get(`${sKey}_${safeLower((item as any).sku)}`) || 0 : 0,
-            (item as any).sku && sNum ? retBySaleAndProd.get(`${sNum}_${safeLower((item as any).sku)}`) || 0 : 0,
+            (item as any).sku ? retBySaleAndProd.get(`${sKey}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0,
+            (item as any).sku && sNum ? retBySaleAndProd.get(`${sNum}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0,
           );
           const retFromSingle = isSingleItem && totalReturnedAmt > 0 ? qty : 0;
 
@@ -803,8 +678,7 @@ export function DashboardTab({
           return qty - retQty > 0;
         });
 
-        const netSaleTotal = Math.max(0, Number(s.total || 0) - Number(s.store_credit_used || 0) - totalReturnedAmt);
-        const creditUsed = Number(s.store_credit_used || 0);
+        const netSaleTotal = Math.max(0, Number(s.total || 0) - totalReturnedAmt);
 
         return {
           key: `pos-${s.id}`,
@@ -813,8 +687,6 @@ export function DashboardTab({
           customer: s.customer_name || "Walk-in Customer",
           phone: s.customer_phone || "",
           amount: netSaleTotal,
-          grossAmount: Number(s.total || 0),
-          store_credit_used: creditUsed,
           payment_method: s.payment_method || "Cash",
           status: s.status || "completed",
           source: "POS" as const,
@@ -840,15 +712,15 @@ export function DashboardTab({
     }
 
     if (salesSearchQuery.trim()) {
-      const q = safeLower(salesSearchQuery);
+      const q = salesSearchQuery.toLowerCase().trim();
       combined = combined.filter(
         (s) =>
-          safeLower(s.id).includes(q) ||
-          safeLower(s.customer).includes(q) ||
-          safeLower(s.phone).includes(q) ||
-          safeLower(s.payment_method).includes(q) ||
-          safeLower(s.status).includes(q) ||
-          safeLower(s.itemsSummary).includes(q) ||
+          s.id.toLowerCase().includes(q) ||
+          s.customer.toLowerCase().includes(q) ||
+          s.phone.includes(q) ||
+          s.payment_method.toLowerCase().includes(q) ||
+          s.status.toLowerCase().includes(q) ||
+          s.itemsSummary.toLowerCase().includes(q) ||
           s.amount.toString().includes(q),
       );
     }
@@ -1014,7 +886,7 @@ export function DashboardTab({
     const isOnlineOrder =
       act.source === "online_order" ||
       (act.typeKey === "order" && act.source !== "pos_sale") ||
-      safeLower(act.title).includes("online order");
+      act.title.toLowerCase().includes("online order");
 
     if (isOnlineOrder) {
       return {
@@ -1025,7 +897,7 @@ export function DashboardTab({
       };
     }
 
-    if (act.source === "pos_sale" || safeLower(act.title).includes("store sale")) {
+    if (act.source === "pos_sale" || act.title.toLowerCase().includes("store sale")) {
       return {
         label: "View Sale",
         tooltip: "Click to inspect POS sale receipt",
@@ -1038,8 +910,8 @@ export function DashboardTab({
       act.source === "pos_return" ||
       act.source === "online_return" ||
       act.typeKey === "return" ||
-      safeLower(act.title).includes("return") ||
-      safeLower(act.title).includes("voucher")
+      act.title.toLowerCase().includes("return") ||
+      act.title.toLowerCase().includes("voucher")
     ) {
       return {
         label: "View Return",
@@ -1067,7 +939,7 @@ export function DashboardTab({
 
     if (
       act.typeKey === "checkout" ||
-      safeLower(act.title).includes("checkout") ||
+      act.title.toLowerCase().includes("checkout") ||
       act.title.includes("/checkout") ||
       act.metadata?.path === "/checkout"
     ) {
@@ -1112,7 +984,7 @@ export function DashboardTab({
     const isOnlineOrder =
       act.source === "online_order" ||
       (act.typeKey === "order" && act.source !== "pos_sale") ||
-      safeLower(act.title).includes("online order");
+      act.title.toLowerCase().includes("online order");
 
     if (isOnlineOrder) {
       const orderId = act.metadata?.order_id || act.id;
@@ -1120,14 +992,14 @@ export function DashboardTab({
         (o) =>
           o.id === orderId ||
           (o.invoice_no && act.title.includes(o.invoice_no)) ||
-          safeUpper(act.title).includes(safeUpper(o.id.slice(0, 8))),
+          act.title.toUpperCase().includes(o.id.slice(0, 8).toUpperCase()),
       );
       if (orderMatch) {
         setSelectedSale({
           key: `online-${orderMatch.id}`,
           id: orderMatch.invoice_no
             ? `#${orderMatch.invoice_no}`
-            : `#${safeUpper(orderMatch.id.slice(0, 8))}`,
+            : `#${orderMatch.id.slice(0, 8).toUpperCase()}`,
           rawId: orderMatch.id,
           customer: orderMatch.full_name || orderMatch.email || "Online Buyer",
           phone: orderMatch.phone || "",
@@ -1148,18 +1020,18 @@ export function DashboardTab({
     }
 
     // 2. POS Sale - if sale details are in memory, show rich POS receipt modal
-    if (act.source === "pos_sale" || safeLower(act.title).includes("store sale")) {
+    if (act.source === "pos_sale" || act.title.toLowerCase().includes("store sale")) {
       const saleId = act.metadata?.sale_id || act.id;
       const posMatch = rawPosSales.find(
         (s) =>
           s.id === saleId ||
           (s.sale_number && act.title.includes(s.sale_number)) ||
-          safeUpper(act.title).includes(safeUpper(s.id.slice(0, 8))),
+          act.title.toUpperCase().includes(s.id.slice(0, 8).toUpperCase()),
       );
       if (posMatch) {
         setSelectedSale({
           key: `pos-${posMatch.id}`,
-          id: posMatch.sale_number || `#${safeUpper(posMatch.id.slice(0, 8))}`,
+          id: posMatch.sale_number || `#${posMatch.id.slice(0, 8).toUpperCase()}`,
           rawId: posMatch.id,
           customer: posMatch.customer_name || "Walk-in Customer",
           phone: posMatch.customer_phone || "",
@@ -1216,12 +1088,12 @@ export function DashboardTab({
     return parsedActivities.filter((act) => {
       if (activityFilter !== "all" && act.typeKey !== activityFilter) return false;
       if (activitySearch.trim()) {
-        const q = safeLower(activitySearch);
+        const q = activitySearch.toLowerCase();
         return (
-          safeLower(act.title).includes(q) ||
-          safeLower(act.subtitle).includes(q) ||
-          (act.productName && safeLower(act.productName).includes(q)) ||
-          (act.customerName && safeLower(act.customerName).includes(q))
+          act.title.toLowerCase().includes(q) ||
+          act.subtitle.toLowerCase().includes(q) ||
+          (act.productName && act.productName.toLowerCase().includes(q)) ||
+          (act.customerName && act.customerName.toLowerCase().includes(q))
         );
       }
       return true;
@@ -1304,29 +1176,15 @@ export function DashboardTab({
 
   if (activeDrillDown) {
     return (
-      <Suspense
-        fallback={
-          <div className="flex h-96 w-full items-center justify-center p-8">
-            <div className="flex flex-col items-center gap-3">
-              <div className="size-8 animate-spin rounded-full border-3 border-primary border-t-transparent" />
-              <p className="text-xs font-semibold text-muted-foreground animate-pulse">
-                Loading analytics details...
-              </p>
-            </div>
-          </div>
-        }
-      >
-        <LazyDashboardDrillDown
-          type={activeDrillDown}
-          onBack={() => setActiveDrillDown(null)}
-          dateRangeText={dateRangeText}
-          orders={activeDrillDown === "cash" ? orders : orders.filter((o) => inCurrentPeriod(o.created_at))}
-          posSales={activeDrillDown === "cash" ? posSales : posSales.filter((s) => inCurrentPeriod(s.created_at))}
-          allPosSales={posSales}
-          offlineReturns={activeDrillDown === "cash" || activeDrillDown === "credits" ? offlineReturns : offlineReturns.filter((r) => inCurrentPeriod(r.created_at))}
-          products={products}
-        />
-      </Suspense>
+      <DashboardDrillDown
+        type={activeDrillDown}
+        onBack={() => setActiveDrillDown(null)}
+        dateRangeText={dateRangeText}
+        orders={activeDrillDown === "cash" ? orders : orders.filter((o) => inCurrentPeriod(o.created_at))}
+        posSales={activeDrillDown === "cash" ? posSales : posSales.filter((s) => inCurrentPeriod(s.created_at))}
+        offlineReturns={offlineReturns.filter((r) => inCurrentPeriod(r.created_at))}
+        products={products}
+      />
     );
   }
 
@@ -1513,8 +1371,7 @@ export function DashboardTab({
               setActiveDrillDown("revenue");
             }
           }}
-          aria-label={`Total Sales (Collected): ${formatPrice(stats.totalSales)}. Click to open Analytics.`}
-          title={`Total Collected Sales: ${formatPrice(stats.totalSales)}${stats.storeCreditUsedInSales > 0 ? ` (Store Credit Used: ${formatPrice(stats.storeCreditUsedInSales)})` : ""}`}
+          aria-label={`Total Sales: ${formatPrice(stats.totalSales)}. Click to open Analytics.`}
           className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
@@ -1525,7 +1382,6 @@ export function DashboardTab({
               </h3>
               <p className="text-[11px] text-white/80 mt-0.5 truncate">
                 {stats.ordersCount} {stats.ordersCount === 1 ? "sale" : "sales"}
-                {stats.storeCreditUsedInSales > 0 ? " • Cash collected" : ""}
               </p>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
@@ -1631,50 +1487,47 @@ export function DashboardTab({
           </div>
         </div>
 
-        {/* 4. Active Return Credits Card */}
+        {/* 4. Low Stock Card */}
         <div
           role="button"
           tabIndex={0}
-          onClick={() => setActiveDrillDown("credits")}
+          onClick={() => setActiveDrillDown("low_stock")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setActiveDrillDown("credits");
+              setActiveDrillDown("low_stock");
             }
           }}
-          aria-label={`Active Return Credits: ${formatPrice(customerCreditIntel.totalReturnCredits)}. Click to view customer return credit vouchers and product breakdown.`}
-          title={`Active Return Credits: ${formatPrice(customerCreditIntel.totalReturnCredits)} (${customerCreditIntel.voucherCount} active vouchers)`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-indigo-900/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          aria-label={`Low Stock Items: ${stats.lowStockCount}. Click to open Inventory.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-slate-800/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white/90">Active Return Credits</p>
+              <p className="text-xs font-medium text-white/90">Low Stock Items</p>
               <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
-                {returnsLoading
-                  ? "..."
-                  : formatPrice(customerCreditIntel.totalReturnCredits)}
+                {isAnyLoading ? "..." : stats.lowStockCount}
               </h3>
               <p className="text-[11px] text-white/80 mt-0.5 truncate">
-                {customerCreditIntel.voucherCount > 0
-                  ? `${customerCreditIntel.voucherCount} active vouchers holding balance`
-                  : "0 active vouchers"}
+                {stats.lowStockCount > 0
+                  ? `${stats.lowStockCount} items need reorder`
+                  : "All inventory healthy"}
               </p>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
-              <Coins className="h-10 w-10" />
+              <AlertTriangle className="h-10 w-10" />
             </div>
           </div>
           <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
             <span className="font-semibold text-white truncate mr-2">
-              {stats.storeCreditUsedInSales > 0
-                ? `Redeemed in period: ${formatPrice(stats.storeCreditUsedInSales)}`
-                : "Redeemed in period: ₹0"}
+              {stats.outOfStockCount > 0
+                ? `${stats.outOfStockCount} out of stock`
+                : "Stock alert (≤5)"}
             </span>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setActiveDrillDown("credits");
+                setActiveDrillDown("low_stock");
               }}
               className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
             >
@@ -1759,7 +1612,6 @@ export function DashboardTab({
         <div
           className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors"
           onClick={() => setActiveDrillDown("revenue")}
-          title={`Total Cash & Online Collections: ${formatPrice(stats.totalSales)}${stats.storeCreditUsedInSales > 0 ? ` (Store Credit Used: ${formatPrice(stats.storeCreditUsedInSales)})` : ""}`}
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
             <TrendingUp className="h-5 w-5" />
@@ -2234,14 +2086,7 @@ export function DashboardTab({
                       </span>
                     </td>
                     <td className="py-3 text-right font-black text-foreground text-sm whitespace-nowrap">
-                      <div>
-                        <span>{formatPrice(s.amount)}</span>
-                        {Boolean(s.store_credit_used && s.store_credit_used > 0) && (
-                          <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 font-sans">
-                            Bill {formatPrice((s as any).grossAmount || s.amount)} • -{formatPrice(s.store_credit_used || 0)} credit
-                          </p>
-                        )}
-                      </div>
+                      {formatPrice(s.amount)}
                     </td>
                     <td className="py-3 text-center pr-2 whitespace-nowrap">
                       <div
@@ -2971,39 +2816,8 @@ export function DashboardTab({
                       )}
                     </>
                   )}
-                  {matchingPos && (
-                    <>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Gross Bill Value</span>
-                        <span>
-                          {formatPrice(
-                            Number(matchingPos.total || (selectedSale as any).grossAmount || selectedSale.amount),
-                          )}
-                        </span>
-                      </div>
-                      {Number((matchingPos as any).discount || 0) > 0 && (
-                        <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
-                          <span>Store Discount</span>
-                          <span>- {formatPrice(Number((matchingPos as any).discount))}</span>
-                        </div>
-                      )}
-                      {Number(matchingPos.store_credit_used || (selectedSale as any).store_credit_used || 0) > 0 && (
-                        <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 font-semibold bg-indigo-50 dark:bg-indigo-950/50 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                          <span className="flex items-center gap-1.5">
-                            <Coins className="size-3.5" />
-                            Store Credit / Return Voucher Applied
-                          </span>
-                          <span>
-                            - {formatPrice(
-                              Number(matchingPos.store_credit_used || (selectedSale as any).store_credit_used),
-                            )}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
                   <div className="flex justify-between text-sm font-black text-foreground pt-2 border-t border-border">
-                    <span>{selectedSale.source === "POS" ? "Net Collected Amount" : "Final Amount"}</span>
+                    <span>Final Amount</span>
                     <span>{formatPrice(selectedSale.amount)}</span>
                   </div>
                 </div>

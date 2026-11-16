@@ -50,9 +50,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowRight,
-  Edit3,
 } from "lucide-react";
-import { format } from "date-fns";
 import { formatPrice, imageFor } from "@/lib/store";
 import { playScanSuccess, playScanError } from "@/lib/audio";
 import { useGlobalBarcodeScanner, clearPendingScans } from "@/lib/barcode-scanner";
@@ -79,7 +77,6 @@ import {
   parseReturnScanCode,
 } from "@/lib/pos-returns";
 import { POSReturnReceipt, type ReturnReceiptData } from "@/components/admin/POSReturnReceipt";
-import { safeLower } from "@/lib/utils";
 
 type ReturnView = "process" | "history";
 type DiscoveryMode = "customer" | "barcode" | "invoice_qr";
@@ -231,172 +228,6 @@ export function POSReturnsTab() {
     }
   };
 
-  // ── Settle & Edit Return Credits in Return History ──
-  const [editingReturnRecord, setEditingReturnRecord] = useState<OfflineReturn | null>(null);
-  const [editRemainingInput, setEditRemainingInput] = useState<string>("");
-  const [editAuditNotes, setEditAuditNotes] = useState<string>("");
-  const [isUpdatingReturn, setIsUpdatingReturn] = useState(false);
-
-  const reconcileCustomerCreditByPhone = async (phone: string | undefined | null) => {
-    const norm10 = (phone || "").replace(/\D/g, "").slice(-10);
-    if (!norm10) return;
-    try {
-      const { data: retData } = await supabase
-        .from("offline_returns")
-        .select("refund_amount, credit_used, credit_balance, credit_token_status")
-        .ilike("customer_phone", `%${norm10}%`);
-
-      let totalRemaining = 0;
-      for (const r of retData || []) {
-        const status = String(r.credit_token_status || "").toUpperCase();
-        if (status === "ACTIVE" || status === "PARTIALLY_USED") {
-          const rem =
-            r.credit_balance !== undefined && r.credit_balance !== null
-              ? Number(r.credit_balance)
-              : Math.max(0, Number(r.refund_amount || 0) - Number(r.credit_used || 0));
-          totalRemaining += Math.max(0, rem);
-        }
-      }
-
-      await supabase
-        .from("pos_customers")
-        .update({
-          store_credit_balance: totalRemaining,
-          store_credit: totalRemaining,
-          updated_at: new Date().toISOString(),
-        } as any)
-        .ilike("phone", `%${norm10}%`);
-    } catch (e) {
-      console.warn("[reconcileCustomerCreditByPhone] Error reconciling pos_customers credit:", e);
-    }
-  };
-
-  const handleSettleReturn = async (ret: OfflineReturn) => {
-    try {
-      setIsUpdatingReturn(true);
-      const issued = Number(ret.refund_amount || 0);
-      const used = Number(ret.credit_used || 0);
-      const remaining = Math.max(0, issued - used);
-      const dateNote = `[Settled remaining ₹${remaining.toFixed(2)} by admin on ${format(new Date(), "MMM dd, yyyy • hh:mm a")}]`;
-      const updatedNotes = ret.notes ? `${ret.notes}\n${dateNote}` : dateNote;
-
-      const { error } = await supabase
-        .from("offline_returns")
-        .update({
-          credit_used: issued,
-          credit_balance: 0,
-          credit_token_status: "CONSUMED",
-          notes: updatedNotes,
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", ret.id);
-
-      if (error) throw error;
-
-      // Reconcile pos_customers balance with all remaining returns for this customer
-      await reconcileCustomerCreditByPhone(ret.customer_phone);
-
-      toast.success(`Return #${ret.return_number} (${ret.credit_token}) marked as settled!`);
-      await qc.invalidateQueries({ queryKey: ["offline-returns"] });
-      await qc.invalidateQueries({ queryKey: ["admin-pos-customers-credit"] });
-      await qc.invalidateQueries({ queryKey: ["pos-returns"] });
-      invalidateCanonicalReportingQueries(qc);
-    } catch (err: any) {
-      console.error("[POSReturnsTab] Settle error:", err);
-      toast.error(err?.message || "Failed to settle return credit");
-    } finally {
-      setIsUpdatingReturn(false);
-    }
-  };
-
-  const handleSaveEditReturn = async () => {
-    if (!editingReturnRecord) return;
-    const newBal = parseFloat(editRemainingInput);
-    if (isNaN(newBal) || newBal < 0) {
-      toast.error("Please enter a valid remaining credit balance");
-      return;
-    }
-
-    try {
-      setIsUpdatingReturn(true);
-      const issued = Number(editingReturnRecord.refund_amount || 0);
-      const calculatedUsed = Math.max(0, issued - newBal);
-      const isConsumed = newBal <= 0;
-      const noteAppend = editAuditNotes.trim()
-        ? `[Credit adjusted by admin to ₹${newBal}: ${editAuditNotes.trim()} on ${format(new Date(), "MMM dd, yyyy")}]`
-        : `[Credit adjusted by admin to ₹${newBal} on ${format(new Date(), "MMM dd, yyyy")}]`;
-      const updatedNotes = editingReturnRecord.notes
-        ? `${editingReturnRecord.notes}\n${noteAppend}`
-        : noteAppend;
-
-      const { error } = await supabase
-        .from("offline_returns")
-        .update({
-          credit_balance: newBal,
-          credit_used: calculatedUsed,
-          credit_token_status: isConsumed ? "CONSUMED" : "ACTIVE",
-          notes: updatedNotes,
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", editingReturnRecord.id);
-
-      if (error) throw error;
-
-      // Reconcile pos_customers balance with all remaining returns for this customer
-      await reconcileCustomerCreditByPhone(editingReturnRecord.customer_phone);
-
-      toast.success(`Return #${editingReturnRecord.return_number} updated to ${formatPrice(newBal)}!`);
-      setEditingReturnRecord(null);
-      await qc.invalidateQueries({ queryKey: ["offline-returns"] });
-      await qc.invalidateQueries({ queryKey: ["admin-pos-customers-credit"] });
-      await qc.invalidateQueries({ queryKey: ["pos-returns"] });
-      invalidateCanonicalReportingQueries(qc);
-    } catch (err: any) {
-      console.error("[POSReturnsTab] Edit error:", err);
-      toast.error(err?.message || "Failed to update return credit");
-    } finally {
-      setIsUpdatingReturn(false);
-    }
-  };
-
-  const handleBulkSettleSelected = async () => {
-    const selectedIds = Array.from(historySelection.selectedIds);
-    if (selectedIds.length === 0) return;
-    try {
-      setIsUpdatingReturn(true);
-      const phones = new Set<string>();
-      for (const id of selectedIds) {
-        const item = returnsList.find((r) => r.id === id);
-        if (item) {
-          const issued = Number(item.refund_amount || 0);
-          await supabase
-            .from("offline_returns")
-            .update({
-              credit_used: issued,
-              credit_balance: 0,
-              credit_token_status: "CONSUMED",
-              updated_at: new Date().toISOString(),
-            } as any)
-            .eq("id", id);
-          if (item.customer_phone) phones.add(item.customer_phone);
-        }
-      }
-      for (const ph of phones) {
-        await reconcileCustomerCreditByPhone(ph);
-      }
-      toast.success(`${selectedIds.length} return credits marked as settled!`);
-      historySelection.clearSelection();
-      await qc.invalidateQueries({ queryKey: ["offline-returns"] });
-      await qc.invalidateQueries({ queryKey: ["admin-pos-customers-credit"] });
-      await qc.invalidateQueries({ queryKey: ["pos-returns"] });
-      invalidateCanonicalReportingQueries(qc);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to settle selected returns");
-    } finally {
-      setIsUpdatingReturn(false);
-    }
-  };
-
   // Clear any residual scans when entering Returns tab so POS Terminal is clean
   useEffect(() => {
     clearPendingScans();
@@ -474,24 +305,24 @@ export function POSReturnsTab() {
 
     if (q) {
       groups = groups.filter((g) => {
-        const nameMatch = safeLower(g.customer_name).includes(q);
-        const phoneMatch = safeLower(g.customer_phone).includes(q);
+        const nameMatch = g.customer_name.toLowerCase().includes(q);
+        const phoneMatch = g.customer_phone.toLowerCase().includes(q);
         const creditTokenMatch = returnsList.some(
           (r) =>
             r.credit_token &&
-            safeLower(r.credit_token).includes(q) &&
+            r.credit_token.toLowerCase().includes(q) &&
             ((g.customer_phone && r.customer_phone && g.customer_phone.includes(r.customer_phone)) ||
-              (g.customer_name && r.customer_name && safeLower(g.customer_name) === safeLower(r.customer_name)) ||
+              (g.customer_name && r.customer_name && g.customer_name.toLowerCase() === r.customer_name.toLowerCase()) ||
               (g.customer_id && r.customer_id && g.customer_id === r.customer_id)),
         );
         const saleMatch = g.sales.some(
           (s) =>
-            safeLower(s.sale_number).includes(q) ||
+            s.sale_number.toLowerCase().includes(q) ||
             s.offline_sale_items.some(
               (it) =>
-                safeLower(it.name).includes(q) ||
-                safeLower(it.sku).includes(q) ||
-                safeLower(it.barcode).includes(q),
+                it.name.toLowerCase().includes(q) ||
+                it.sku.toLowerCase().includes(q) ||
+                it.barcode.toLowerCase().includes(q),
             ),
         );
         return nameMatch || phoneMatch || creditTokenMatch || saleMatch;
@@ -515,9 +346,9 @@ export function POSReturnsTab() {
 
     pastSalesWithMetrics.forEach((sale) => {
       sale.offline_sale_items.forEach((item) => {
-        const barcodeMatch = item.barcode && safeLower(item.barcode) === q;
-        const skuMatch = item.sku && safeLower(item.sku) === q;
-        const nameMatch = item.name && safeLower(item.name).includes(q);
+        const barcodeMatch = item.barcode && item.barcode.toLowerCase() === q;
+        const skuMatch = item.sku && item.sku.toLowerCase() === q;
+        const nameMatch = item.name && item.name.toLowerCase().includes(q);
 
         if (barcodeMatch || skuMatch || nameMatch) {
           // Apply Candidate Filters
@@ -527,29 +358,29 @@ export function POSReturnsTab() {
 
           if (dateFilter.trim()) {
             const saleDateStr = new Date(sale.created_at).toISOString().slice(0, 10);
-            const humanDateStr = safeLower(
-              new Date(sale.created_at).toLocaleDateString("en-IN", {
+            const humanDateStr = new Date(sale.created_at)
+              .toLocaleDateString("en-IN", {
                 day: "numeric",
                 month: "short",
                 year: "numeric",
               })
-            );
-            const filterLower = safeLower(dateFilter);
+              .toLowerCase();
+            const filterLower = dateFilter.trim().toLowerCase();
             if (!saleDateStr.includes(filterLower) && !humanDateStr.includes(filterLower)) {
               return;
             }
           }
 
           if (candidateCustomerFilter.trim()) {
-            const custLower = safeLower(candidateCustomerFilter);
-            const matchName = safeLower(sale.customer_name).includes(custLower);
-            const matchPhone = safeLower(sale.customer_phone).includes(custLower);
+            const custLower = candidateCustomerFilter.trim().toLowerCase();
+            const matchName = sale.customer_name.toLowerCase().includes(custLower);
+            const matchPhone = sale.customer_phone.toLowerCase().includes(custLower);
             if (!matchName && !matchPhone) return;
           }
 
           if (candidateInvoiceFilter.trim()) {
-            const invLower = safeLower(candidateInvoiceFilter);
-            if (!safeLower(sale.sale_number).includes(invLower)) return;
+            const invLower = candidateInvoiceFilter.trim().toLowerCase();
+            if (!sale.sale_number.toLowerCase().includes(invLower)) return;
           }
 
           matches.push({ sale, item });
@@ -1028,15 +859,15 @@ export function POSReturnsTab() {
 
   // Filtered Returns History
   const filteredHistory = useMemo(() => {
-    const q = safeLower(deferredHistorySearch);
-    if (!q) return returnsList;
+    if (!deferredHistorySearch.trim()) return returnsList;
+    const q = deferredHistorySearch.toLowerCase();
     return returnsList.filter(
       (r) =>
-        safeLower(r.return_number).includes(q) ||
-        safeLower(r.customer_name).includes(q) ||
-        safeLower(r.customer_phone).includes(q) ||
-        safeLower(r.credit_token).includes(q) ||
-        safeLower(r.return_reason).includes(q),
+        r.return_number.toLowerCase().includes(q) ||
+        r.customer_name.toLowerCase().includes(q) ||
+        r.customer_phone.includes(q) ||
+        (r.credit_token && r.credit_token.toLowerCase().includes(q)) ||
+        r.return_reason.toLowerCase().includes(q),
     );
   }, [returnsList, deferredHistorySearch]);
 
@@ -2079,25 +1910,14 @@ export function POSReturnsTab() {
               metrics={historyMetrics}
               onClear={historySelection.clearSelection}
               actions={
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={isUpdatingReturn}
-                    onClick={handleBulkSettleSelected}
-                    className="px-3 py-1 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
-                  >
-                    <CheckCircle2 className="size-3.5" />
-                    <span>Settle Selected ({historySelection.selectedCount})</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(Array.from(historySelection.selectedIds))}
-                    className="px-3 py-1 rounded-xl bg-destructive text-destructive-foreground font-bold text-xs hover:bg-destructive/90 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <Trash2 className="size-3.5" />
-                    <span>Delete ({historySelection.selectedCount})</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(Array.from(historySelection.selectedIds))}
+                  className="px-3 py-1 rounded-xl bg-destructive text-destructive-foreground font-bold text-xs hover:bg-destructive/90 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Delete ({historySelection.selectedCount})</span>
+                </button>
               }
             />
           )}
@@ -2273,36 +2093,6 @@ export function POSReturnsTab() {
                           </td>
                           <td className="p-3 text-right whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5 justify-end">
-                              {/* 1. Settle Button if remaining > 0 */}
-                              {remaining > 0 && (
-                                <button
-                                  type="button"
-                                  disabled={isUpdatingReturn}
-                                  onClick={() => handleSettleReturn(ret)}
-                                  className="px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 border border-emerald-500/30 shadow-2xs transition-colors disabled:opacity-50"
-                                  title="Mark return credit fully settled / redeemed"
-                                >
-                                  <CheckCircle2 className="size-3" />
-                                  <span>Settle</span>
-                                </button>
-                              )}
-
-                              {/* 2. Edit Credit Balance Button */}
-                              <button
-                                type="button"
-                                disabled={isUpdatingReturn}
-                                onClick={() => {
-                                  setEditingReturnRecord(ret);
-                                  setEditRemainingInput(String(remaining));
-                                  setEditAuditNotes(ret.notes || "");
-                                }}
-                                className="px-2 py-1 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-700 dark:text-blue-300 font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 border border-blue-500/30 shadow-2xs transition-colors disabled:opacity-50"
-                                title="Edit return credit amount"
-                              >
-                                <Edit3 className="size-3" />
-                                <span>Edit</span>
-                              </button>
-
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2471,135 +2261,6 @@ export function POSReturnsTab() {
                 </span>
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── EDIT RETURN CREDIT MODAL ── */}
-      {editingReturnRecord && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-        >
-          <div className="w-full max-w-md bg-card border border-border rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center font-black">
-                  <Edit3 className="size-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-base text-foreground">
-                    Edit Return Credit
-                  </h3>
-                  <p className="text-xs text-muted-foreground font-mono">
-                    {editingReturnRecord.return_number} • {editingReturnRecord.credit_token}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingReturnRecord(null)}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Customer:</span>
-                <span className="font-bold text-foreground">
-                  {editingReturnRecord.customer_name} ({editingReturnRecord.customer_phone || "No phone"})
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Original Credit Issued:</span>
-                <span className="font-bold text-foreground">
-                  {formatPrice(Number(editingReturnRecord.refund_amount || 0))}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Credit Used So Far:</span>
-                <span className="font-bold text-amber-600">
-                  {formatPrice(Number(editingReturnRecord.credit_used || 0))}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-border font-bold">
-                <span className="text-foreground">Current Remaining Balance:</span>
-                <span className="text-emerald-600 font-black">
-                  {formatPrice(
-                    Math.max(
-                      0,
-                      Number(editingReturnRecord.refund_amount || 0) -
-                        Number(editingReturnRecord.credit_used || 0)
-                    )
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSaveEditReturn();
-              }}
-              className="space-y-4"
-            >
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground">
-                  New Remaining Credit Balance (₹)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={editRemainingInput}
-                    onChange={(e) => setEditRemainingInput(e.target.value)}
-                    className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm font-black text-foreground focus:outline-none focus:border-primary transition"
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Setting to ₹0 marks this return voucher as Fully Redeemed / Settled.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground">
-                  Adjustment Reason / Audit Notes
-                </label>
-                <input
-                  type="text"
-                  value={editAuditNotes}
-                  onChange={(e) => setEditAuditNotes(e.target.value)}
-                  placeholder="e.g. Return credit adjusted by store admin"
-                  className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary transition"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingReturnRecord(null)}
-                  className="px-4 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-muted transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isUpdatingReturn}
-                  className="px-5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5 shadow-xs"
-                >
-                  <Check className="size-3.5" />
-                  <span>Save Balance</span>
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

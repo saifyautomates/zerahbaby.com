@@ -12,8 +12,6 @@
  * 7. Average Order Value (AOV) = Net Revenue / Total Transactions Count
  */
 
-import { safeLower, safeUpper } from "@/lib/utils";
-
 export interface ReportItemCost {
   buying_price?: number;
 }
@@ -202,11 +200,11 @@ export interface FinancialMetrics {
  */
 export function isValidOnlineOrder(o: ReportOrder): boolean {
   if (!o) return false;
-  const s = safeLower(o.status);
+  const s = (o.status || "").toLowerCase().trim();
   if (s === "cancelled" || s === "returned" || s === "refunded") return false;
-  const ps = safeLower(o.payment_status);
+  const ps = (o.payment_status || "").toLowerCase().trim();
   if (ps === "failed" || ps === "refunded") return false;
-  const rs = safeUpper((o as unknown as Record<string, unknown>).return_status);
+  const rs = (((o as unknown as Record<string, unknown>).return_status as string) || "").toUpperCase().trim();
   if (rs === "COMPLETED" || rs === "REFUNDED") return false;
   return true;
 }
@@ -346,12 +344,6 @@ export function calculateFinancialMetrics({
   // or returned item quantity is used. This also covers legacy sales whose return row
   // is missing, while preserving the sale-item returned quantities as double-return guards.
   const fullReturnStatuses = new Set(["returned", "fully_returned", "completed"]);
-  const creditRefundMethods = new Set(["exchange_credit", "store_credit", "credit", "voucher", "exchange"]);
-  const isCreditRefund = (ret: ReportReturn) => {
-    const m = safeLower(ret.refund_method);
-    return creditRefundMethods.has(m) || Boolean((ret as any).credit_token);
-  };
-
   const getReturnSaleKeys = (ret: ReportReturn): string[] =>
     [
       ret.sale_id,
@@ -363,20 +355,15 @@ export function calculateFinancialMetrics({
       .filter((key, index, keys) => keys.indexOf(key) === index);
 
   const refundsBySaleKey = new Map<string, number>();
-  const cashRefundsBySaleKey = new Map<string, number>();
   for (const ret of validReturns) {
     const amount = Math.max(0, Number(ret.refund_total || ret.refund_amount || 0));
-    const isCredit = isCreditRefund(ret);
     for (const key of getReturnSaleKeys(ret)) {
       refundsBySaleKey.set(key, (refundsBySaleKey.get(key) || 0) + amount);
-      if (!isCredit) {
-        cashRefundsBySaleKey.set(key, (cashRefundsBySaleKey.get(key) || 0) + amount);
-      }
     }
   }
 
   const fullyReturnedPosSales = validPos.filter((sale) => {
-    const returnStatus = safeLower(sale.return_status);
+    const returnStatus = (sale.return_status || "").toLowerCase().trim();
     const saleTotal = Math.max(0, Number(sale.total || 0));
     const returnedAmount = Math.max(0, Number(sale.returned_amount || 0));
     const items = sale.offline_sale_items || [];
@@ -390,7 +377,7 @@ export function calculateFinancialMetrics({
           Math.max(
             Number(item.quantity_returned || 0),
             Number(item.returned_quantity || 0),
-            ["returned", "fully_returned"].includes(safeLower(item.return_status))
+            ["returned", "fully_returned"].includes(String(item.return_status || "").toLowerCase().trim())
               ? soldQty
               : 0,
           ),
@@ -419,7 +406,7 @@ export function calculateFinancialMetrics({
   const amountReturnedForSale = (sale: ReportPOSSale): number => {
     const saleTotal = Math.max(0, Number(sale.total || 0));
     const saleNumber = sale.sale_number || "";
-    const returnStatus = safeLower(sale.return_status);
+    const returnStatus = (sale.return_status || "").toLowerCase().trim();
     if (fullReturnStatuses.has(returnStatus) || fullyReturnedSaleKeys.has(sale.id)) {
       return saleTotal;
     }
@@ -436,7 +423,7 @@ export function calculateFinancialMetrics({
         Math.max(
           Number(item.quantity_returned || 0),
           Number(item.returned_quantity || 0),
-          ["returned", "fully_returned"].includes(safeLower(item.return_status))
+          ["returned", "fully_returned"].includes(String(item.return_status || "").toLowerCase().trim())
             ? soldQty
             : 0,
         ),
@@ -466,23 +453,8 @@ export function calculateFinancialMetrics({
     );
   };
 
-  const amountCashReturnedForSale = (sale: ReportPOSSale): number => {
-    const saleTotal = Math.max(0, Number(sale.total || 0));
-    const saleNumber = sale.sale_number || "";
-    const linkedRecordedCashRefund = Math.max(
-      cashRefundsBySaleKey.get(sale.id) || 0,
-      saleNumber ? cashRefundsBySaleKey.get(saleNumber) || 0 : 0,
-    );
-    return Math.min(saleTotal, linkedRecordedCashRefund);
-  };
-
   const impliedReturnsForPOSales = validPos.reduce(
     (sum, sale) => sum + amountReturnedForSale(sale),
-    0,
-  );
-
-  const impliedCashReturnsForPOSales = validPos.reduce(
-    (sum, sale) => sum + amountCashReturnedForSale(sale),
     0,
   );
 
@@ -497,38 +469,13 @@ export function calculateFinancialMetrics({
       : sum + Math.max(0, Number(ret.refund_total || ret.refund_amount || 0));
   }, 0);
 
-  const standaloneCashRecordedReturns = validReturns.reduce((sum, ret) => {
-    if (isCreditRefund(ret)) return sum;
-    const linkedToCurrentPeriodSale = getReturnSaleKeys(ret).some((key) =>
-      allCurrentPeriodSaleKeys.has(key),
-    );
-    return linkedToCurrentPeriodSale
-      ? sum
-      : sum + Math.max(0, Number(ret.refund_total || ret.refund_amount || 0));
-  }, 0);
-
   const offlineReturns =
     Math.round((impliedReturnsForPOSales + standaloneRecordedReturns) * 100) / 100;
-  const offlineCashReturns =
-    Math.round((impliedCashReturnsForPOSales + standaloneCashRecordedReturns) * 100) / 100;
   const onlineReturns = 0;
   const totalReturns = offlineReturns + onlineReturns;
 
-  // 4. Net Revenue: Revenue collected from sales generated in period.
-  // CRITICAL BUSINESS RULE:
-  // - Store credits redeemed at checkout (store_credit_used) do NOT count towards collected sales.
-  // - Returns refunded as Store Credit/Exchange Vouchers do not reduce the cash collected on past sales;
-  //   instead, their value is deducted on the subsequent sale where the voucher is redeemed.
-  // - Cash refunds (direct money payouts) reduce cash collections.
-  const storeCreditUsedInSales = validPos.reduce(
-    (sum, s) => sum + Number(s.store_credit_used || 0),
-    0,
-  );
-
-  const offlineNetRevenue = Math.max(
-    0,
-    offlineGrossRevenue - storeCreditUsedInSales - offlineCashReturns,
-  );
+  // 4. Net Revenue: Revenue of sales generated in period (net of returns on those sales, strictly matching SalesChannelDrillDown and Total Profit Analysis)
+  const offlineNetRevenue = Math.max(0, offlineGrossRevenue - impliedReturnsForPOSales);
   const onlineNetRevenue = Math.max(0, onlineGrossRevenue - onlineReturns);
   const netRevenue = offlineNetRevenue + onlineNetRevenue;
 
@@ -546,7 +493,7 @@ export function calculateFinancialMetrics({
         (p) =>
           (item.product_id && (p.id === item.product_id || p.slug === item.product_id)) ||
           (item.product_slug && (p.slug === item.product_slug || p.id === item.product_slug)) ||
-          (item.name && p.name && safeLower(p.name) === safeLower(item.name)),
+          (item.name && p.name && p.name.trim().toLowerCase() === item.name.trim().toLowerCase()),
       );
       const historicalBp = Number(
         item.cost_price ??
@@ -595,11 +542,11 @@ export function calculateFinancialMetrics({
           retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
         }
         if (item.name) {
-          const k = `${sKey}_${safeLower(item.name)}`;
+          const k = `${sKey}_${item.name.toLowerCase().trim()}`;
           retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
         }
         if (item.sku) {
-          const k = `${sKey}_${safeLower(item.sku)}`;
+          const k = `${sKey}_${item.sku.toLowerCase().trim()}`;
           retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
         }
       }
@@ -611,7 +558,7 @@ export function calculateFinancialMetrics({
 
   validPos.forEach((s) => {
     // If entire sale was returned, skip all items from active sold count and cost
-    const retStatus = safeLower(s.return_status);
+    const retStatus = (s.return_status || "").toLowerCase().trim();
     const sNum = s.sale_number || "";
     const refundFromList = Math.max(
       refundsBySale.get(s.id) || 0,
@@ -643,12 +590,12 @@ export function calculateFinancialMetrics({
         item.product_slug && sNum ? retBySaleAndProd.get(`${sNum}_${item.product_slug}`) || 0 : 0,
       );
       const retFromName = Math.max(
-        item.name ? retBySaleAndProd.get(`${sKey}_${safeLower(item.name)}`) || 0 : 0,
-        item.name && sNum ? retBySaleAndProd.get(`${sNum}_${safeLower(item.name)}`) || 0 : 0,
+        item.name ? retBySaleAndProd.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0 : 0,
+        item.name && sNum ? retBySaleAndProd.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0 : 0,
       );
       const retFromSku = Math.max(
-        item.sku ? retBySaleAndProd.get(`${sKey}_${safeLower(item.sku)}`) || 0 : 0,
-        item.sku && sNum ? retBySaleAndProd.get(`${sNum}_${safeLower(item.sku)}`) || 0 : 0,
+        item.sku ? retBySaleAndProd.get(`${sKey}_${item.sku.toLowerCase().trim()}`) || 0 : 0,
+        item.sku && sNum ? retBySaleAndProd.get(`${sNum}_${item.sku.toLowerCase().trim()}`) || 0 : 0,
       );
       const retFromSingle = isSingleItem && totalReturnedAmt > 0 ? qty : 0;
 
@@ -669,7 +616,7 @@ export function calculateFinancialMetrics({
         (p) =>
           (item.product_id && (p.id === item.product_id || p.slug === item.product_id)) ||
           (item.product_slug && (p.slug === item.product_slug || p.id === item.product_slug)) ||
-          (item.name && p.name && safeLower(p.name) === safeLower(item.name)),
+          (item.name && p.name && p.name.trim().toLowerCase() === item.name.trim().toLowerCase()),
       );
       const historicalBp = Number(
         item.cost_price ??
@@ -706,7 +653,7 @@ export function calculateFinancialMetrics({
         (prod) =>
           (item.product_id && (prod.id === item.product_id || prod.slug === item.product_id)) ||
           (item.product_slug && (prod.slug === item.product_slug || prod.id === item.product_slug)) ||
-          (item.name && prod.name && safeLower(prod.name) === safeLower(item.name)),
+          (item.name && prod.name && prod.name.trim().toLowerCase() === item.name.trim().toLowerCase()),
       );
       const historicalBp = Number(
         (item as any).cost_price ??
@@ -745,7 +692,7 @@ export function calculateFinancialMetrics({
   // 7. Counts & Averages
   const validOnlineOrdersCount = validOrders.length;
   const validPosSalesCount = validPos.filter((s) => {
-    const retStatus = safeLower(s.return_status);
+    const retStatus = (s.return_status || "").toLowerCase().trim();
     const sNum = s.sale_number || "";
     const refundFromList = Math.max(
       refundsBySale.get(s.id) || 0,
@@ -770,9 +717,9 @@ export function calculateFinancialMetrics({
   // Legacy POS rows with payment_status="paid" are NOT treated as due even if
   // amount_paid is absent/zero in old data.
   const pendingCodOrders = orders.filter((order) => {
-    const paymentStatus = safeLower(order.payment_status);
-    const paymentMethod = safeLower(order.payment_method);
-    const orderStatus = safeLower(order.status);
+    const paymentStatus = String(order.payment_status || "").toLowerCase().trim();
+    const paymentMethod = String(order.payment_method || "").toLowerCase().trim();
+    const orderStatus = String(order.status || "").toLowerCase().trim();
     return (
       isInPeriod(order.created_at) &&
       !["cancelled", "refunded", "failed"].includes(orderStatus) &&
@@ -790,14 +737,14 @@ export function calculateFinancialMetrics({
   );
 
   const pendingPosDueSales = validPos.filter((sale) => {
-    const paymentStatus = safeLower(sale.payment_status);
-    const paymentMethod = safeLower((sale as any).payment_method);
-    const returnStatus = safeLower(sale.return_status);
+    const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+    const paymentMethod = String((sale as any).payment_method || "").toLowerCase().trim();
+    const returnStatus = String(sale.return_status || "").toLowerCase().trim();
     const dueStatuses = new Set(["pending", "unpaid", "partial", "partially_paid", "due"]);
     const isDueStatus = dueStatuses.has(paymentStatus);
     const isDueMethod = paymentMethod === "due" || paymentMethod === "credit";
     if (!isDueStatus && !isDueMethod) return false;
-    if (["cancelled", "voided", "failed", "sync_failed"].includes(safeLower(sale.status))) {
+    if (["cancelled", "voided", "failed", "sync_failed"].includes(String(sale.status || "").toLowerCase().trim())) {
       return false;
     }
     if (["returned", "fully_returned", "completed"].includes(returnStatus)) return false;
@@ -842,11 +789,15 @@ export function calculateFinancialMetrics({
   // refund_total is the value of merchandise returned; refund_amount is the payout/credit issued.
   const storeCreditMethods = new Set(["exchange_credit", "store_credit", "credit", "voucher", "exchange"]);
   const storeCreditIssued = validReturns.reduce((sum, ret) => {
-    const method = safeLower(ret.refund_method);
+    const method = String(ret.refund_method || "").toLowerCase().trim();
     return storeCreditMethods.has(method)
       ? sum + Math.max(0, Number(ret.refund_amount || 0))
       : sum;
   }, 0);
+  const storeCreditUsedInSales = validPos.reduce(
+    (sum, s) => sum + Number(s.store_credit_used || 0),
+    0,
+  );
   const storeCreditOutstanding = Math.max(0, storeCreditIssued - storeCreditUsedInSales);
 
   return {
