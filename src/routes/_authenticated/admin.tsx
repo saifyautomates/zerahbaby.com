@@ -296,28 +296,31 @@ export function AdminPage() {
   });
 
   const setTab = useCallback((newTab: Tab) => {
-    setTabState(newTab);
+    const safeTab = VALID_TABS.includes(newTab) ? newTab : "dashboard";
+    setTabState(safeTab);
     if (typeof window !== "undefined") {
-      localStorage.setItem("zerah_admin_active_tab", newTab);
+      localStorage.setItem("zerah_admin_active_tab", safeTab);
       const url = new URL(window.location.href);
-      if (newTab === "dashboard") {
+      if (safeTab === "dashboard") {
         url.searchParams.delete("tab");
       } else {
-        url.searchParams.set("tab", newTab);
+        url.searchParams.set("tab", safeTab);
       }
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
 
   const handleAdminNavigate = useCallback((targetTab: string, payload?: string) => {
-    setTabState(targetTab as Tab);
+    const resolvedTab = (targetTab === "analytics" ? "dashboard" : targetTab) as Tab;
+    const safeTab = VALID_TABS.includes(resolvedTab) ? resolvedTab : "dashboard";
+    setTabState(safeTab);
     if (typeof window !== "undefined") {
-      localStorage.setItem("zerah_admin_active_tab", targetTab);
+      localStorage.setItem("zerah_admin_active_tab", safeTab);
       const url = new URL(window.location.href);
-      if (targetTab === "dashboard") {
+      if (safeTab === "dashboard") {
         url.searchParams.delete("tab");
       } else {
-        url.searchParams.set("tab", targetTab);
+        url.searchParams.set("tab", safeTab);
       }
       if (payload) {
         url.searchParams.set("orderId", payload);
@@ -1251,7 +1254,9 @@ export function AdminPage() {
                   )
                 }
               >
-                {tab === "dashboard" && <DashboardTab onNavigate={handleAdminNavigate} />}
+                {(!VALID_TABS.includes(tab) || tab === "dashboard") && (
+                  <DashboardTab onNavigate={handleAdminNavigate} />
+                )}
                 {tab === "billing" && <BillingCenterTab />}
                 {tab === "products" && <ProductsTab />}
                 {tab === "hero" && <HeroMediaManager />}

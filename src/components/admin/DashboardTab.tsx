@@ -60,6 +60,7 @@ import {
   Receipt,
   Truck,
   Ban,
+  Coins,
 } from "lucide-react";
 import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,6 +69,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { type OfflineSale } from "@/lib/pos";
 import { initPerformanceMetrics } from "@/utils/performanceMetrics";
 import { DashboardDrillDown } from "./DashboardDrillDown";
+import { CustomerCreditsDrillDown } from "./CustomerCreditsDrillDown";
 import { AdminDashboardSkeleton } from "@/components/ui/Skeletons";
 import {
   calculateFinancialMetrics,
@@ -79,6 +81,7 @@ import {
   type DatePreset,
 } from "@/lib/financial-reporting";
 import { useCanonicalPOSSales, CANONICAL_POS_SALES_KEY } from "@/lib/canonical-reporting";
+import { safeLower, safeUpper } from "@/lib/utils";
 
 type WebsiteVisitor = {
   created_at: string;
@@ -400,6 +403,35 @@ export function DashboardTab({
   const isAnyLoading =
     ordersLoading || posLoading || visitorsLoading || productsLoading || returnsLoading;
   const isAnyError = ordersError || posError || visitorsError || productsError || returnsError;
+
+  // Active Return Credits calculation (strictly customers who returned items and have unused/remaining credit)
+  const activeReturnVouchers = useMemo(() => {
+    return offlineReturns.filter((r) => {
+      const status = safeUpper((r as any).credit_token_status || "ACTIVE");
+      if (status === "CONSUMED" || status === "VOIDED" || status === "EXPIRED") return false;
+      const refundAmt = Number((r as any).refund_amount || (r as any).refund_total || 0);
+      const creditUsed = Number((r as any).credit_used || 0);
+      const remaining =
+        (r as any).credit_balance !== undefined && (r as any).credit_balance !== null
+          ? Number((r as any).credit_balance)
+          : Math.max(0, refundAmt - creditUsed);
+      return remaining > 0;
+    });
+  }, [offlineReturns]);
+
+  const totalActiveReturnCredit = useMemo(() => {
+    return activeReturnVouchers.reduce((sum, r) => {
+      const refundAmt = Number((r as any).refund_amount || (r as any).refund_total || 0);
+      const creditUsed = Number((r as any).credit_used || 0);
+      const remaining =
+        (r as any).credit_balance !== undefined && (r as any).credit_balance !== null
+          ? Number((r as any).credit_balance)
+          : Math.max(0, refundAmt - creditUsed);
+      return sum + remaining;
+    }, 0);
+  }, [activeReturnVouchers]);
+
+  const activeVouchersCount = activeReturnVouchers.length;
 
   // Authoritative KPI Metrics Calculation via Centralized Financial Reporting Engine
   const stats = useMemo(() => {
@@ -1174,6 +1206,18 @@ export function DashboardTab({
     window.URL.revokeObjectURL(url);
   };
 
+  if (activeDrillDown === "credits") {
+    return (
+      <CustomerCreditsDrillDown
+        onBack={() => setActiveDrillDown(null)}
+        dateRangeText={dateRangeText}
+        offlineReturns={offlineReturns}
+        products={products}
+        posSales={posSales}
+      />
+    );
+  }
+
   if (activeDrillDown) {
     return (
       <DashboardDrillDown
@@ -1184,12 +1228,14 @@ export function DashboardTab({
         posSales={activeDrillDown === "cash" ? posSales : posSales.filter((s) => inCurrentPeriod(s.created_at))}
         offlineReturns={offlineReturns.filter((r) => inCurrentPeriod(r.created_at))}
         products={products}
+        visitors={visitors}
+        onClearVisitors={() => clearVisitorsMutation.mutate()}
       />
     );
   }
 
   return (
-    <div className="space-y-6 text-foreground animate-in fade-in duration-150">
+    <div className="space-y-4 text-foreground animate-in fade-in duration-150">
       {/* Date Range Selector and Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 -mt-1 mb-4">
         <div>
@@ -1359,7 +1405,7 @@ export function DashboardTab({
       )}
 
       {/* Top 5 Vibrant, Clickable, Fully-Responsive KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         {/* 1. Total Sales Card (Emerald Green) */}
         <div
           role="button"
@@ -1371,26 +1417,33 @@ export function DashboardTab({
               setActiveDrillDown("revenue");
             }
           }}
-          aria-label={`Total Sales: ${formatPrice(stats.totalSales)}. Click to open Analytics.`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          aria-label={`Total Sales: ${formatPrice(stats.grossSales)}. Click to open Analytics.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-4 text-white shadow-sm hover:shadow-lg hover:shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">Total Sales</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
-                {isAnyLoading ? "..." : formatPrice(stats.totalSales)}
+              <h3 className="text-2xl font-extrabold tracking-tight mt-0.5 truncate">
+                {isAnyLoading ? "..." : formatPrice(stats.grossSales)}
               </h3>
-              <p className="text-[11px] text-white/80 mt-0.5 truncate">
-                {stats.ordersCount} {stats.ordersCount === 1 ? "sale" : "sales"}
-              </p>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
+                <span className="text-white/80">
+                  {stats.ordersCount} {stats.ordersCount === 1 ? "sale" : "sales"}
+                </span>
+                {stats.storeCreditUsedInSales > 0 && (
+                  <span className="bg-white/20 px-1.5 py-0.5 rounded font-semibold text-white">
+                    Credit Used: {formatPrice(stats.storeCreditUsedInSales)}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
-              <span className="text-4xl font-serif leading-none select-none">₹</span>
+              <span className="text-3xl font-serif leading-none select-none">₹</span>
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
-            <span className="font-semibold text-white truncate mr-2">
-              {stats.revenueDelta.text}
+          <div className="flex items-center justify-between pt-2 border-t border-white/15 text-[11px] mt-2.5 flex-wrap gap-1">
+            <span className="font-bold text-white whitespace-nowrap">
+              Money Collected: {formatPrice(stats.netSales)}
             </span>
             <button
               type="button"
@@ -1398,7 +1451,7 @@ export function DashboardTab({
                 e.stopPropagation();
                 setActiveDrillDown("revenue");
               }}
-              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
+              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer ml-auto"
             >
               More info <Info className="h-3 w-3 shrink-0" />
             </button>
@@ -1417,21 +1470,28 @@ export function DashboardTab({
             }
           }}
           aria-label={`My Cost: ${formatPrice(stats.myCost)}. Click to view Cost details.`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-blue-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 p-4 text-white shadow-sm hover:shadow-lg hover:shadow-blue-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">My Cost</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+              <h3 className="text-2xl font-extrabold tracking-tight mt-0.5 truncate">
                 {isAnyLoading ? "..." : formatPrice(stats.myCost)}
               </h3>
-              <p className="text-[11px] text-white/80 mt-0.5 truncate">Cost of sold items</p>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
+                <span className="text-white/80">Cost of sold items</span>
+                {stats.grossSales > 0 && (
+                  <span className="bg-white/20 px-1.5 py-0.5 rounded font-semibold text-white">
+                    {Math.round((stats.myCost / stats.grossSales) * 100)}% of sales
+                  </span>
+                )}
+              </div>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
-              <Package className="h-10 w-10" />
+              <Package className="h-9 w-9" />
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+          <div className="flex items-center justify-between pt-2 border-t border-white/15 text-[11px] mt-2.5">
             <span className="font-semibold text-white truncate mr-2">Buying price total</span>
             <button
               type="button"
@@ -1458,21 +1518,28 @@ export function DashboardTab({
             }
           }}
           aria-label={`Total Profit: ${formatPrice(stats.totalProfit)}. Click to open Profit Analysis.`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-amber-500/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 p-4 text-white shadow-sm hover:shadow-lg hover:shadow-amber-500/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">Total Profit</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+              <h3 className="text-2xl font-extrabold tracking-tight mt-0.5 truncate">
                 {isAnyLoading ? "..." : formatPrice(stats.totalProfit)}
               </h3>
-              <p className="text-[11px] text-white/80 mt-0.5 truncate">Sales − My Cost</p>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
+                <span className="text-white/80">Sales − My Cost</span>
+                {stats.grossSales > 0 && (
+                  <span className="bg-white/20 px-1.5 py-0.5 rounded font-semibold text-white">
+                    {Math.round((stats.totalProfit / stats.grossSales) * 100)}% margin
+                  </span>
+                )}
+              </div>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
               <span className="text-3xl select-none">📈</span>
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+          <div className="flex items-center justify-between pt-2 border-t border-white/15 text-[11px] mt-2.5">
             <span className="font-semibold text-white truncate mr-2">Total profit earned</span>
             <button
               type="button"
@@ -1487,47 +1554,49 @@ export function DashboardTab({
           </div>
         </div>
 
-        {/* 4. Low Stock Card */}
+        {/* 4. Active Return Credits Card */}
         <div
           role="button"
           tabIndex={0}
-          onClick={() => setActiveDrillDown("low_stock")}
+          onClick={() => setActiveDrillDown("credits")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setActiveDrillDown("low_stock");
+              setActiveDrillDown("credits");
             }
           }}
-          aria-label={`Low Stock Items: ${stats.lowStockCount}. Click to open Inventory.`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-slate-800/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          aria-label={`Total Credits: ${formatPrice(totalActiveReturnCredit)}. ${activeVouchersCount} active return vouchers holding balance. Click to view return vouchers and settle.`}
+          title={`Active Return Credits: ${formatPrice(totalActiveReturnCredit)} across ${activeVouchersCount} active vouchers`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 p-4 text-white shadow-sm hover:shadow-lg hover:shadow-indigo-900/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white/90">Low Stock Items</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
-                {isAnyLoading ? "..." : stats.lowStockCount}
+              <p className="text-xs font-medium text-white/90">Total Credits</p>
+              <h3 className="text-2xl font-extrabold tracking-tight mt-0.5 truncate">
+                {returnsLoading ? "..." : formatPrice(totalActiveReturnCredit)}
               </h3>
-              <p className="text-[11px] text-white/80 mt-0.5 truncate">
-                {stats.lowStockCount > 0
-                  ? `${stats.lowStockCount} items need reorder`
-                  : "All inventory healthy"}
-              </p>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
+                <span className="text-white/80">
+                  {activeVouchersCount} {activeVouchersCount === 1 ? "voucher" : "vouchers"}
+                </span>
+                <span className="bg-white/20 px-1.5 py-0.5 rounded font-semibold text-white">
+                  Active Vouchers
+                </span>
+              </div>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
-              <AlertTriangle className="h-10 w-10" />
+              <Coins className="h-9 w-9" />
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+          <div className="flex items-center justify-between pt-2 border-t border-white/15 text-[11px] mt-2.5">
             <span className="font-semibold text-white truncate mr-2">
-              {stats.outOfStockCount > 0
-                ? `${stats.outOfStockCount} out of stock`
-                : "Stock alert (≤5)"}
+              Unused return balance
             </span>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setActiveDrillDown("low_stock");
+                setActiveDrillDown("credits");
               }}
               className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
             >
@@ -1548,25 +1617,28 @@ export function DashboardTab({
             }
           }}
           aria-label={`Cash Outstanding: ${formatPrice(stats.cashOutstanding)}. Click to view pending COD and POS due sales.`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-600 to-rose-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-rose-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-600 to-rose-700 p-4 text-white shadow-sm hover:shadow-lg hover:shadow-rose-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">Cash Outstanding</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+              <h3 className="text-2xl font-extrabold tracking-tight mt-0.5 truncate">
                 {isAnyLoading ? "..." : formatPrice(stats.cashOutstanding)}
               </h3>
-              <p className="text-[11px] text-white/80 mt-0.5 truncate">
-                {stats.pendingCodCount > 0
-                  ? `${stats.pendingCodCount} pending collections (COD / POS due)`
-                  : "No pending dues"}
-              </p>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
+                <span className="text-white/80">
+                  {stats.pendingCodCount > 0 ? `${stats.pendingCodCount} dues` : "Zero dues"}
+                </span>
+                <span className="bg-white/20 px-1.5 py-0.5 rounded font-semibold text-white">
+                  {stats.pendingCodCount > 0 ? "Pending collection" : "All cleared"}
+                </span>
+              </div>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
               <span className="text-3xl select-none">💰</span>
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+          <div className="flex items-center justify-between pt-2 border-t border-white/15 text-[11px] mt-2.5">
             <span className="font-semibold text-white truncate mr-2">
               {stats.pendingCodCount > 0 ? "Pending collection" : "Zero balance due"}
             </span>
@@ -1727,7 +1799,7 @@ export function DashboardTab({
             </div>
             <button
               type="button"
-              onClick={() => onNavigate?.("analytics")}
+              onClick={() => setActiveDrillDown("revenue")}
               className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
             >
               Analytics <ChevronDown className="h-3 w-3 rotate-270" />
@@ -1807,7 +1879,7 @@ export function DashboardTab({
             </div>
             <button
               type="button"
-              onClick={() => onNavigate?.("analytics")}
+              onClick={() => setActiveDrillDown("visitors")}
               className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
             >
               Traffic <ChevronDown className="h-3 w-3 rotate-270" />
@@ -2294,7 +2366,7 @@ export function DashboardTab({
       </div>
 
       {/* Website Visitors Section */}
-      <div className="mt-6 rounded-2xl bg-card p-5 shadow-sm border border-border">
+      <div id="website-visitors-section" className="mt-6 rounded-2xl bg-card p-5 shadow-sm border border-border">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-bold text-foreground">Website Visitors</h3>
@@ -2303,23 +2375,33 @@ export function DashboardTab({
               <span className="font-bold text-foreground">{visitors.length}</span>
             </p>
           </div>
-          {visitors.length > 0 && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (
-                  window.confirm("Are you sure you want to permanently clear all visitor logs?")
-                ) {
-                  clearVisitorsMutation.mutate();
-                }
-              }}
-              disabled={clearVisitorsMutation.isPending}
-              className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition cursor-pointer disabled:opacity-50"
+              onClick={() => setActiveDrillDown("visitors")}
+              className="flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-muted transition cursor-pointer"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>{clearVisitorsMutation.isPending ? "Clearing..." : "Clear All Logs"}</span>
+              <span>Full Analytics</span>
+              <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
-          )}
+            {visitors.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm("Are you sure you want to permanently clear all visitor logs?")
+                  ) {
+                    clearVisitorsMutation.mutate();
+                  }
+                }}
+                disabled={clearVisitorsMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{clearVisitorsMutation.isPending ? "Clearing..." : "Clear All Logs"}</span>
+              </button>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">

@@ -17,6 +17,8 @@ import {
   Truck,
   Tag,
   RotateCcw,
+  Users,
+  MapPin,
 } from "lucide-react";
 import { useState, useMemo, useCallback, Suspense, lazy } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -107,6 +109,7 @@ export interface DrillDownPOSSale {
   return_status?: string | null;
   returned_amount?: number | null;
   payment_status?: string | null;
+  payment_method?: string | null;
   amount_paid?: number | null;
   store_credit_used?: number | null;
   is_voided?: boolean | null;
@@ -163,6 +166,244 @@ export interface DrillDownProduct {
   stock?: number;
   low_stock_at?: number;
   is_active?: boolean;
+}
+
+export interface DrillDownVisitor {
+  id?: string;
+  created_at: string;
+  customer_name?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  landing_page?: string | null;
+  referrer?: string | null;
+  user_agent?: string | null;
+  ip_address?: string | null;
+}
+
+function WebsiteTrafficSubView({
+  visitors,
+  onClearVisitors,
+}: {
+  visitors: DrillDownVisitor[];
+  onClearVisitors?: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "identified" | "anonymous">("all");
+
+  const filteredVisitors = useMemo(() => {
+    let list = [...visitors];
+    if (filterType === "identified") {
+      list = list.filter((v) => !!v.customer_name);
+    } else if (filterType === "anonymous") {
+      list = list.filter((v) => !v.customer_name);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((v) => {
+        const name = (v.customer_name || "").toLowerCase();
+        const city = (v.city || "").toLowerCase();
+        const country = (v.country || "").toLowerCase();
+        const region = (v.region || "").toLowerCase();
+        const landing = (v.landing_page || "").toLowerCase();
+        return (
+          name.includes(q) ||
+          city.includes(q) ||
+          country.includes(q) ||
+          region.includes(q) ||
+          landing.includes(q)
+        );
+      });
+    }
+    return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [visitors, search, filterType]);
+
+  const uniqueCities = useMemo(() => {
+    const cities = visitors.map((v) => v.city).filter(Boolean);
+    return new Set(cities).size;
+  }, [visitors]);
+
+  const identifiedCount = useMemo(() => {
+    return visitors.filter((v) => !!v.customer_name).length;
+  }, [visitors]);
+
+  return (
+    <div className="space-y-6">
+      {/* Metric Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Recorded Traffic</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-foreground">{visitors.length}</span>
+            <span className="text-xs text-muted-foreground">visits</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Identified Customers</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{identifiedCount}</span>
+            <span className="text-xs text-muted-foreground">
+              ({visitors.length > 0 ? Math.round((identifiedCount / visitors.length) * 100) : 0}%)
+            </span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unique Locations</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{uniqueCities}</span>
+            <span className="text-xs text-muted-foreground">cities / regions</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Traffic Mode</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-violet-600 dark:text-violet-400">Direct</span>
+            <span className="text-xs text-muted-foreground">website visits</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search visitor, city, country, or page..."
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-muted/60 border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center bg-muted/60 rounded-xl p-0.5 border border-border text-xs">
+            <button
+              type="button"
+              onClick={() => setFilterType("all")}
+              className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                filterType === "all" ? "bg-background text-foreground shadow-2xs font-semibold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All ({visitors.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterType("identified")}
+              className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                filterType === "identified" ? "bg-background text-foreground shadow-2xs font-semibold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Identified ({identifiedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterType("anonymous")}
+              className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                filterType === "anonymous" ? "bg-background text-foreground shadow-2xs font-semibold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Anonymous ({visitors.length - identifiedCount})
+            </button>
+          </div>
+
+          {onClearVisitors && visitors.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Are you sure you want to permanently clear all visitor logs?")) {
+                  onClearVisitors();
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/20 transition cursor-pointer"
+            >
+              <Trash2 className="size-3.5" />
+              <span>Clear Logs</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Visitor Logs Table */}
+      <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card">
+        <table className="w-full min-w-[700px] text-left text-xs">
+          <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold uppercase text-[10px] tracking-wider">
+            <tr>
+              <th className="px-5 py-3">Visitor Identity</th>
+              <th className="px-5 py-3">Visited At</th>
+              <th className="px-5 py-3">Location (City, Country)</th>
+              <th className="px-5 py-3">Landing Destination</th>
+              <th className="px-5 py-3">Source</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filteredVisitors.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-12 text-center text-xs text-muted-foreground">
+                  No visitor records matching your filter criteria.
+                </td>
+              </tr>
+            ) : (
+              filteredVisitors.map((v, idx) => {
+                const location = [v.city, v.region, v.country].filter(Boolean).join(", ");
+                return (
+                  <tr key={v.id || idx} className="hover:bg-muted/40 transition-colors">
+                    <td className="px-5 py-3.5 font-medium text-foreground">
+                      <div className="flex items-center gap-2.5">
+                        <div className="size-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs uppercase">
+                          {v.customer_name ? v.customer_name[0] : "A"}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            {v.customer_name || "Anonymous Visitor"}
+                          </p>
+                          {v.ip_address && (
+                            <p className="text-[10px] text-muted-foreground font-mono">
+                              IP: {v.ip_address}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-muted-foreground">
+                      {format(new Date(v.created_at), "MMM d, yyyy • h:mm a")}
+                    </td>
+                    <td className="px-5 py-3.5 text-muted-foreground font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="size-3.5 text-muted-foreground/70 shrink-0" />
+                        <span>{location || "Unknown Location"}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-muted-foreground">
+                      <span className="font-mono text-[11px] bg-muted/60 px-2 py-0.5 rounded-md text-foreground">
+                        {v.landing_page || "/"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        Direct
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function OrdersChannelSubView({
@@ -429,6 +670,26 @@ function OrdersChannelSubView({
   );
 }
 
+export interface DrillDownRevenueItem {
+  sale_id: string;
+  sale_number?: string;
+  customer_name?: string;
+  date: string;
+  product: string;
+  slug: string | null;
+  image: string | null;
+  source: "Online" | "POS" | "Return";
+  qty: number;
+  price: number;
+  total: number;
+  store_credit_used?: number;
+  amount_paid?: number;
+  payment_method?: string | null;
+  itemCredit?: number;
+  itemCash?: number;
+  return_number?: string;
+}
+
 function SalesChannelDrillDown({
   type,
   validOrders,
@@ -560,17 +821,7 @@ function SalesChannelDrillDown({
   }, [validReturns]);
 
   const onlineRevenueItems = useMemo(() => {
-    const items: Array<{
-      sale_id: string;
-      date: string;
-      product: string;
-      slug: string | null;
-      image: string | null;
-      source: "Online";
-      qty: number;
-      price: number;
-      total: number;
-    }> = [];
+    const items: DrillDownRevenueItem[] = [];
     validOrders.forEach((o) => {
       const s = (o.status || "").toLowerCase();
       const retStatus = (((o as unknown as Record<string, unknown>).return_status as string) || "").toUpperCase();
@@ -591,8 +842,11 @@ function SalesChannelDrillDown({
             (prod) => prod.id === item.product_id || prod.slug === item.product_slug,
           );
           const itemPrice = item.price || 0;
+          const lineTotal = itemPrice * netQty || o.total || 0;
           items.push({
             sale_id: o.id,
+            sale_number: `ORD-${o.id.substring(0, 8).toUpperCase()}`,
+            customer_name: o.customer_name || (o.profiles as any)?.full_name || o.full_name || "Online Customer",
             date: o.created_at,
             product: item.product_name || item.name || "Product",
             slug: p?.slug || item.product_slug || null,
@@ -600,20 +854,33 @@ function SalesChannelDrillDown({
             source: "Online",
             qty: netQty,
             price: itemPrice,
-            total: itemPrice * netQty || o.total || 0,
+            total: lineTotal,
+            store_credit_used: 0,
+            amount_paid: lineTotal,
+            payment_method: o.payment_method || "Online",
+            itemCredit: 0,
+            itemCash: lineTotal,
           });
         });
       } else {
+        const orderTotal = o.total || 0;
         items.push({
           sale_id: o.id,
+          sale_number: `ORD-${o.id.substring(0, 8).toUpperCase()}`,
+          customer_name: o.customer_name || (o.profiles as any)?.full_name || o.full_name || "Online Customer",
           date: o.created_at,
           product: `Online Order #${o.id.substring(0, 8).toUpperCase()}`,
           slug: null,
           image: null,
           source: "Online",
           qty: 1,
-          price: o.total || 0,
-          total: o.total || 0,
+          price: orderTotal,
+          total: orderTotal,
+          store_credit_used: 0,
+          amount_paid: orderTotal,
+          payment_method: o.payment_method || "Online",
+          itemCredit: 0,
+          itemCash: orderTotal,
         });
       }
     });
@@ -703,17 +970,7 @@ function SalesChannelDrillDown({
   }, [validPosSales, refundsBySaleId, returnsBySaleItemId, returnsBySaleAndProduct]);
 
   const offlineRevenueItems = useMemo(() => {
-    const items: Array<{
-      sale_id: string;
-      date: string;
-      product: string;
-      slug: string | null;
-      image: string | null;
-      source: "POS";
-      qty: number;
-      price: number;
-      total: number;
-    }> = [];
+    const items: DrillDownRevenueItem[] = [];
     validPosSales.forEach((s) => {
       const retStatus = (s.return_status || "").toLowerCase().trim();
       const sNum = s.sale_number || "";
@@ -732,6 +989,9 @@ function SalesChannelDrillDown({
       ) {
         return; // Completely returned sale: DO NOT SHOW IN SALES!
       }
+
+      const storeCredit = Number(s.store_credit_used || 0);
+      const amountPaid = Number(s.amount_paid || 0);
 
       if (s.offline_sale_items && s.offline_sale_items.length > 0) {
         const isSingleItem = s.offline_sale_items.length === 1;
@@ -779,6 +1039,8 @@ function SalesChannelDrillDown({
 
           items.push({
             sale_id: s.id,
+            sale_number: s.sale_number,
+            customer_name: s.customer_name,
             date: s.created_at,
             product: p ? p.name : item.name || item.product_name || "Product",
             slug: p?.slug || null,
@@ -787,6 +1049,11 @@ function SalesChannelDrillDown({
             qty: netQty,
             price: itemPrice,
             total: rawItemTotal,
+            store_credit_used: storeCredit,
+            amount_paid: amountPaid,
+            payment_method: s.payment_method,
+            itemCredit: 0,
+            itemCash: rawItemTotal,
           });
         });
       } else {
@@ -794,6 +1061,8 @@ function SalesChannelDrillDown({
         const netTotal = Math.max(0, Number(s.total || 0) - totalReturnedAmt);
         items.push({
           sale_id: s.id,
+          sale_number: s.sale_number,
+          customer_name: s.customer_name,
           date: s.created_at,
           product: `POS Sale ${s.sale_number || s.id.substring(0, 8)}`,
           slug: null,
@@ -802,6 +1071,11 @@ function SalesChannelDrillDown({
           qty: 1,
           price: netTotal,
           total: netTotal,
+          store_credit_used: storeCredit,
+          amount_paid: amountPaid,
+          payment_method: s.payment_method,
+          itemCredit: 0,
+          itemCash: netTotal,
         });
       }
     });
@@ -855,34 +1129,56 @@ function SalesChannelDrillDown({
               ? Number(netSaleTotal.toFixed(2))
               : 0;
         });
-        continue;
-      }
+      } else {
+        const allocations = weightedRows.map(({ index, weight }) => {
+          const exactUnits = (weight / totalWeight) * targetUnits;
+          const baseUnits = Math.floor(exactUnits);
+          return {
+            index,
+            units: baseUnits,
+            remainder: exactUnits - baseUnits,
+          };
+        });
 
-      const allocations = weightedRows.map(({ index, weight }) => {
-        const exactUnits = (weight / totalWeight) * targetUnits;
-        const baseUnits = Math.floor(exactUnits);
-        return {
-          index,
-          units: baseUnits,
-          remainder: exactUnits - baseUnits,
-        };
-      });
+        const remainingUnits =
+          targetUnits - allocations.reduce((sum, allocation) => sum + allocation.units, 0);
 
-      const remainingUnits =
-        targetUnits - allocations.reduce((sum, allocation) => sum + allocation.units, 0);
-
-      const largestRemainders = [...allocations].sort(
-        (a, b) => b.remainder - a.remainder || a.index - b.index,
-      );
-
-      for (let i = 0; i < remainingUnits; i++) {
-        largestRemainders[i].units += 1;
-      }
-
-      allocations.forEach((allocation) => {
-        items[allocation.index].total = Number(
-          (allocation.units * precision).toFixed(2),
+        const largestRemainders = [...allocations].sort(
+          (a, b) => b.remainder - a.remainder || a.index - b.index,
         );
+
+        for (let i = 0; i < remainingUnits; i++) {
+          largestRemainders[i].units += 1;
+        }
+
+        allocations.forEach((allocation) => {
+          items[allocation.index].total = Number(
+            (allocation.units * precision).toFixed(2),
+          );
+        });
+      }
+
+      // Compute item-level credit and cash allocation for this sale
+      const storeCredit = Number(sale.store_credit_used || 0);
+      const cashPaid = Number(sale.amount_paid || Math.max(0, netSaleTotal - storeCredit));
+      let creditRemaining = storeCredit;
+
+      // Sort indexes by item total descending so the most significant items get matched to store credit first
+      const sortedIndexes = [...indexes].sort((a, b) => items[b].total - items[a].total);
+
+      sortedIndexes.forEach((idx) => {
+        const itemTot = items[idx].total;
+        const creditForThisItem = Math.min(itemTot, creditRemaining);
+        const cashForThisItem = Math.max(0, Number((itemTot - creditForThisItem).toFixed(2)));
+        creditRemaining = Math.max(0, Number((creditRemaining - creditForThisItem).toFixed(2)));
+
+        items[idx].itemCredit = Number(creditForThisItem.toFixed(2));
+        items[idx].itemCash = cashForThisItem;
+        items[idx].store_credit_used = storeCredit;
+        items[idx].amount_paid = cashPaid;
+        items[idx].sale_number = sale.sale_number;
+        items[idx].customer_name = sale.customer_name;
+        items[idx].payment_method = sale.payment_method;
       });
     }
 
@@ -890,18 +1186,7 @@ function SalesChannelDrillDown({
   }, [validPosSales, refundsBySaleId, returnsBySaleItemId, returnsBySaleAndProduct, getProduct, getProductImage]);
 
   const returnRevenueItems = useMemo(() => {
-    const items: Array<{
-      sale_id: string;
-      date: string;
-      product: string;
-      slug: string | null;
-      image: string | null;
-      source: "Return";
-      qty: number;
-      price: number;
-      total: number;
-      return_number?: string;
-    }> = [];
+    const items: DrillDownRevenueItem[] = [];
     validReturns.forEach((r) => {
       if (r.offline_return_items && r.offline_return_items.length > 0) {
         r.offline_return_items.forEach((item) => {
@@ -912,6 +1197,8 @@ function SalesChannelDrillDown({
             item.refund_subtotal || item.subtotal || refundPrice * itemQty || r.refund_total || r.refund_amount || 0;
           items.push({
             sale_id: r.id,
+            sale_number: r.return_number,
+            customer_name: r.customer_name,
             date: r.created_at,
             product: `${p ? p.name : item.name || "Customer Return"} (${r.return_number || "Return"})`,
             slug: p?.slug || item.product_slug || null,
@@ -921,11 +1208,17 @@ function SalesChannelDrillDown({
             price: refundPrice,
             total: -Number(refundSubtotal),
             return_number: r.return_number,
+            store_credit_used: 0,
+            amount_paid: 0,
+            itemCredit: -Number(refundSubtotal),
+            itemCash: 0,
           });
         });
       } else {
         items.push({
           sale_id: r.id,
+          sale_number: r.return_number,
+          customer_name: r.customer_name,
           date: r.created_at,
           product: `Customer Return (${r.return_number || r.id.substring(0, 8)})`,
           slug: null,
@@ -935,6 +1228,10 @@ function SalesChannelDrillDown({
           price: Number(r.refund_total || r.refund_amount || 0),
           total: -Number(r.refund_total || r.refund_amount || 0),
           return_number: r.return_number,
+          store_credit_used: 0,
+          amount_paid: 0,
+          itemCredit: -Number(r.refund_total || r.refund_amount || 0),
+          itemCash: 0,
         });
       }
     });
@@ -968,17 +1265,7 @@ function SalesChannelDrillDown({
   }
 
   // Revenue Drilldown
-  let combinedRev: Array<{
-    sale_id: string;
-    date: string;
-    product: string;
-    slug: string | null;
-    image: string | null;
-    source: "Online" | "POS";
-    qty: number;
-    price: number;
-    total: number;
-  }> = [];
+  let combinedRev: DrillDownRevenueItem[] = [];
   if (activeChannel === "online") combinedRev = onlineRevenueItems;
   else if (activeChannel === "offline") combinedRev = offlineRevenueItems;
   else combinedRev = [...onlineRevenueItems, ...offlineRevenueItems];
@@ -987,8 +1274,16 @@ function SalesChannelDrillDown({
 
   if (search.trim()) {
     const q = search.toLowerCase();
-    combinedRev = combinedRev.filter((i) => i.product.toLowerCase().includes(q));
+    combinedRev = combinedRev.filter(
+      (i) =>
+        i.product.toLowerCase().includes(q) ||
+        (i.sale_number && i.sale_number.toLowerCase().includes(q)) ||
+        (i.customer_name && i.customer_name.toLowerCase().includes(q))
+    );
   }
+
+  const channelStoreCreditUsed = combinedRev.reduce((acc, i) => acc + (i.itemCredit || 0), 0);
+  const channelCashCollected = combinedRev.reduce((acc, i) => acc + (i.itemCash ?? i.total), 0);
 
   return (
     <div className="space-y-5">
@@ -1072,6 +1367,17 @@ function SalesChannelDrillDown({
                 Total Sales {formatPrice(grossTotalRev)}
               </span>
             </p>
+            {channelStoreCreditUsed > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
+                <span className="inline-flex items-center gap-1 font-semibold text-purple-700 dark:text-purple-300">
+                  🎟️ Store Credit Used: {formatPrice(channelStoreCreditUsed)}
+                </span>
+                <span className="text-muted-foreground">•</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
+                  💵 Money Collected: {formatPrice(channelCashCollected)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div className="text-right">
@@ -1079,6 +1385,11 @@ function SalesChannelDrillDown({
           <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
             {formatPrice(grossTotalRev)}
           </span>
+          {channelStoreCreditUsed > 0 && (
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Money Collected: <span className="font-bold text-foreground">{formatPrice(channelCashCollected)}</span> | Credit: <span className="font-bold text-foreground">{formatPrice(channelStoreCreditUsed)}</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -1134,95 +1445,151 @@ function SalesChannelDrillDown({
 
       {/* Revenue Table */}
       <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
-        <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+        <table className="w-full min-w-[760px] text-left text-sm text-muted-foreground">
           <thead className="bg-muted text-xs uppercase text-foreground">
             <tr>
               <th className="px-6 py-3.5">Date</th>
               <th className="px-6 py-3.5">Product</th>
               <th className="px-6 py-3.5">Sales Section</th>
+              <th className="px-6 py-3.5">Payment & Settlement</th>
               <th className="px-6 py-3.5 text-right">Quantity</th>
               <th className="px-6 py-3.5 text-right">Sale Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {combinedRev.slice(0, 100).map((item, i) => (
-              <tr key={i} className="bg-background transition-colors hover:bg-muted/40">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {format(new Date(item.date), "MMM d, h:mm a")}
-                </td>
-                <td className="px-6 py-4">
-                  {item.slug ? (
-                    <Link
-                      to="/product/$id"
-                      params={{ id: item.slug }}
-                      className="flex items-center gap-3 hover:text-primary transition-colors group"
+            {combinedRev.slice(0, 100).map((item, i) => {
+              const credit = Number(item.itemCredit || 0);
+              const cash = Number(item.itemCash ?? item.total);
+              const hasCredit = credit > 0.005;
+              const is100PercentCredit = credit > 0.005 && cash <= 0.01;
+              const isPartialCredit = credit > 0.005 && cash > 0.01;
+
+              return (
+                <tr key={i} className="bg-background transition-colors hover:bg-muted/40">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {format(new Date(item.date), "MMM d, h:mm a")}
+                  </td>
+                  <td className="px-6 py-4">
+                    {item.slug ? (
+                      <Link
+                        to="/product/$id"
+                        params={{ id: item.slug }}
+                        className="flex items-center gap-3 hover:text-primary transition-colors group"
+                      >
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.product}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-10 h-10 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div>
+                          <span className="font-medium text-foreground group-hover:text-primary transition-colors block">
+                            {item.product}
+                          </span>
+                          {item.sale_number && (
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              Bill #{item.sale_number}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-3 text-foreground">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.product}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-10 h-10 rounded-md object-cover border"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center border">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div>
+                          <span className="font-medium block">{item.product}</span>
+                          {item.sale_number && (
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              Bill #{item.sale_number}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        item.source === "Online"
+                          ? "bg-primary/10 text-primary border border-primary/20"
+                          : item.source === "POS"
+                            ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
+                            : "bg-amber-50 dark:bg-amber-950 text-amber-600 border border-amber-200"
+                      }`}
                     >
-                      {item.image ? (
-                        <img
-                          src={item.image}
-                          alt={item.product}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
-                        />
-                      ) : (
-                        <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                      <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                        {item.product}
-                      </span>
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-3 text-foreground">
-                      {item.image ? (
-                        <img
-                          src={item.image}
-                          alt={item.product}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-9 h-9 rounded-md object-cover border"
-                        />
-                      ) : (
-                        <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                      <span className="font-medium">{item.product}</span>
-                    </div>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                      item.source === "Online"
-                        ? "bg-primary/10 text-primary border border-primary/20"
+                      {item.source === "Online"
+                        ? "🌐 1. Online Sales"
                         : item.source === "POS"
-                          ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
-                          : "bg-amber-50 dark:bg-amber-950 text-amber-600 border border-amber-200"
-                    }`}
+                          ? "🏪 2. Offline POS"
+                          : "🔄 3. Exchange Return"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {is100PercentCredit ? (
+                      <div className="flex flex-col gap-1">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/15 text-purple-800 dark:text-purple-300 border border-purple-500/30 w-fit">
+                          🎟️ Store Credit: {formatPrice(credit)} (100%)
+                        </span>
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          Paid via Store Credit (₹0 extra cash)
+                        </span>
+                      </div>
+                    ) : isPartialCredit ? (
+                      <div className="flex flex-col gap-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-500/15 text-purple-800 dark:text-purple-300 border border-purple-500/30 w-fit">
+                          🎟️ Store Credit: {formatPrice(credit)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 w-fit">
+                          💵 Extra Paid: {formatPrice(cash)}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 w-fit">
+                          💵 Extra Paid: {formatPrice(cash)}
+                        </span>
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          Full Cash / UPI (No credit used)
+                        </span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right font-bold text-foreground">{item.qty}</td>
+                  <td
+                    className={`px-6 py-4 text-right font-black ${item.total < 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}
                   >
-                    {item.source === "Online"
-                      ? "🌐 1. Online Sales"
-                      : item.source === "POS"
-                        ? "🏪 2. Offline POS"
-                        : "🔄 3. Exchange Return"}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right font-bold text-foreground">{item.qty}</td>
-                <td
-                  className={`px-6 py-4 text-right font-black ${item.total < 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}
-                >
-                  {item.total < 0
-                    ? `${formatPrice(Math.abs(item.total))} (Credit)`
-                    : formatPrice(item.total)}
-                </td>
-              </tr>
-            ))}
+                    <div>{item.total < 0 ? `${formatPrice(Math.abs(item.total))} (Credit)` : formatPrice(item.total)}</div>
+                    {hasCredit && (
+                      <div className="text-[10px] font-normal text-muted-foreground mt-0.5">
+                        ({formatPrice(credit)} credit + {formatPrice(cash)} cash)
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {combinedRev.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                   No revenue items found in this section for the selected period.
                 </td>
               </tr>
@@ -1242,6 +1609,8 @@ export function DashboardDrillDown({
   posSales,
   offlineReturns = [],
   products,
+  visitors = [],
+  onClearVisitors,
 }: {
   type: string;
   onBack: () => void;
@@ -1250,6 +1619,8 @@ export function DashboardDrillDown({
   posSales: DrillDownPOSSale[];
   offlineReturns?: DrillDownReturn[];
   products: DrillDownProduct[];
+  visitors?: DrillDownVisitor[];
+  onClearVisitors?: () => void;
 }) {
   const {
     title,
@@ -2071,6 +2442,20 @@ export function DashboardDrillDown({
       };
     }
 
+    if (type === "visitors" || type === "traffic") {
+      return {
+        title: "Website Traffic & Visitor Analytics",
+        icon: Users,
+        colorClass: "text-blue-600 bg-blue-50 dark:bg-blue-950/40",
+        renderContent: () => (
+          <WebsiteTrafficSubView
+            visitors={visitors}
+            onClearVisitors={onClearVisitors}
+          />
+        ),
+      };
+    }
+
     return {
       title: "Details",
       icon: Info,
@@ -2079,7 +2464,7 @@ export function DashboardDrillDown({
         <div className="p-8 text-center text-muted-foreground">Unknown view type</div>
       ),
     };
-  }, [type, orders, posSales, offlineReturns, products]);
+  }, [type, orders, posSales, offlineReturns, products, visitors, onClearVisitors]);
 
   return (
     <div className="animate-in slide-in-from-right-4 duration-300">
