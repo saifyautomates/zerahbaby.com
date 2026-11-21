@@ -517,20 +517,28 @@ export function calculateFinancialMetrics({
   // 4. Net Revenue: Revenue collected from sales generated in period.
   // CRITICAL BUSINESS RULE:
   // - Store credits redeemed at checkout (store_credit_used) do NOT count towards collected sales.
-  // - Returns refunded as Store Credit/Exchange Vouchers do not reduce the cash collected on past sales;
-  //   instead, their value is deducted on the subsequent sale where the voucher is redeemed.
-  // - Cash refunds (direct money payouts) reduce cash collections.
-  const storeCreditUsedInSales = validPos.reduce(
-    (sum, s) => sum + Number(s.store_credit_used || 0),
-    0,
-  );
+  // - In retail math: Retained Merchandise Sold = Money Collected + Store Credit Used
+  // - We compute in exact integer cents to prevent any IEEE 754 floating-point drift across hundreds of rows.
+  let offlineNetSalesCents = 0;
+  let storeCreditUsedInSalesCents = 0;
+  let offlineNetRevenueCents = 0;
 
-  const offlineNetRevenue = Math.max(
-    0,
-    offlineGrossRevenue - impliedReturnsForPOSales - storeCreditUsedInSales,
-  );
-  const onlineNetRevenue = Math.max(0, onlineGrossRevenue - onlineReturns);
-  const netRevenue = offlineNetRevenue + onlineNetRevenue;
+  for (const sale of validPos) {
+    const saleTotalCents = Math.round(Number(sale.total || 0) * 100);
+    const returnedCents = Math.round(amountReturnedForSale(sale) * 100);
+    const netSaleCents = Math.max(0, saleTotalCents - returnedCents);
+    const scCents = Math.round(Number(sale.store_credit_used || 0) * 100);
+    const cashCents = Math.max(0, netSaleCents - scCents);
+
+    offlineNetSalesCents += netSaleCents;
+    storeCreditUsedInSalesCents += scCents;
+    offlineNetRevenueCents += cashCents;
+  }
+
+  const storeCreditUsedInSales = storeCreditUsedInSalesCents / 100;
+  const offlineNetRevenue = offlineNetRevenueCents / 100;
+  const onlineNetRevenue = Math.round(Math.max(0, onlineGrossRevenue - onlineReturns) * 100) / 100;
+  const netRevenue = Math.round((offlineNetRevenue + onlineNetRevenue) * 100) / 100;
 
   // 5. Units Sold & Historical Cost of Goods Sold (My Cost)
   // CRITICAL MANDATE: Never use current catalog cost for past transactions.
@@ -736,9 +744,11 @@ export function calculateFinancialMetrics({
   const totalUnitsSold = onlineUnitsSold + posUnitsSold;
   const totalCogs = onlineCogs + offlineCogs;
 
-  // 6. Simple Normal Business Profit & Cost: Total Profit = Total Sales (Gross Merchandise Sales) - My Cost
+  // 6. Real Merchandise Profit: Total Retained Sales (Net of Returns) - Cost of Goods Sold (My Cost)
+  // Mathematical Identity: Retained Merchandise Sales = Money Collected (netRevenue) + Store Credit Used (storeCreditUsedInSales)
+  const netMerchandiseSales = Math.round((netRevenue + storeCreditUsedInSales) * 100) / 100;
   const myCost = totalCogs;
-  const totalProfit = Math.max(0, grossRevenue - totalCogs);
+  const totalProfit = Math.max(0, Math.round((netMerchandiseSales - totalCogs) * 100) / 100);
   const grossProfit = totalProfit;
   const netProfit = totalProfit;
 
@@ -832,9 +842,9 @@ export function calculateFinancialMetrics({
   const totalCatalogCost = stockValuation.costValue;
 
   // 10. Canonical Store Credit & Exchange Metrics
-  // Note: When products are returned, totalSales on dashboard decreases by the returned amount (Net Sales).
-  const grossSales = grossRevenue;
-  const totalSales = grossRevenue;
+  // Total Sales is the net merchandise value sold and retained: Money Collected + Store Credit Used
+  const grossSales = netMerchandiseSales;
+  const totalSales = netMerchandiseSales;
   const netSales = netRevenue;
   const returnsExchangeCredit = totalReturns;
   const returnedItemsCount = totalUnitsReturned;

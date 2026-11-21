@@ -504,8 +504,8 @@ export function DashboardTab({
 
       return {
         dateStr: format(d, "MMM dd"),
-        online: dayMetrics.onlineNetRevenue ?? dayMetrics.onlineGrossRevenue,
-        offline: dayMetrics.offlineNetRevenue ?? dayMetrics.offlineGrossRevenue,
+        online: dayMetrics.onlineNetRevenue,
+        offline: Math.round((dayMetrics.offlineNetRevenue + (dayMetrics.storeCreditUsedInSales || 0)) * 100) / 100,
         visitors: dayVis,
       };
     });
@@ -529,8 +529,8 @@ export function DashboardTab({
       revenueDelta,
       ordersDelta,
       visitorsDelta,
-      onlineSales: currMetrics.onlineNetRevenue ?? currMetrics.onlineGrossRevenue,
-      cashSales: currMetrics.offlineNetRevenue ?? Math.max(0, currMetrics.offlineGrossRevenue - currMetrics.offlineReturns),
+      onlineSales: currMetrics.onlineNetRevenue,
+      cashSales: Math.round((currMetrics.offlineNetRevenue + (currMetrics.storeCreditUsedInSales || 0)) * 100) / 100,
       grossOnlineSales: currMetrics.onlineGrossRevenue,
       grossCashSales: currMetrics.offlineGrossRevenue,
       totalCatalogValue: currMetrics.totalCatalogValue,

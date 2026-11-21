@@ -1282,8 +1282,8 @@ function SalesChannelDrillDown({
     );
   }
 
-  const channelStoreCreditUsed = combinedRev.reduce((acc, i) => acc + (i.itemCredit || 0), 0);
-  const channelCashCollected = combinedRev.reduce((acc, i) => acc + (i.itemCash ?? i.total), 0);
+  const channelStoreCreditUsed = Math.round(combinedRev.reduce((acc, i) => acc + (i.itemCredit || 0), 0) * 100) / 100;
+  const channelCashCollected = Math.max(0, Math.round((grossTotalRev - channelStoreCreditUsed) * 100) / 100);
 
   return (
     <div className="space-y-5">
@@ -1405,7 +1405,7 @@ function SalesChannelDrillDown({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            All Sales ({onlineRevenueItems.length + offlineRevenueItems.length})
+            All Items ({onlineRevenueItems.length + offlineRevenueItems.length})
           </button>
           <button
             type="button"
@@ -1416,7 +1416,7 @@ function SalesChannelDrillDown({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Online Sales ({onlineRevenueItems.length})
+            Online Items ({onlineRevenueItems.length})
           </button>
           <button
             type="button"
@@ -2181,8 +2181,8 @@ export function DashboardDrillDown({
       // Canonical Aggregate Derivation: Top summary cards strictly align with canonical metrics and row totals
       const rowTotalSales = allItems.reduce((acc, it) => acc + it.rev, 0);
       const rowMyCost = allItems.reduce((acc, it) => acc + it.cogs, 0);
-      const summaryTotalSales = metrics.totalSales > 0 ? metrics.totalSales : rowTotalSales;
-      const summaryMyCost = metrics.myCost > 0 ? metrics.myCost : rowMyCost;
+      const summaryTotalSales = rowTotalSales > 0 ? rowTotalSales : metrics.totalSales;
+      const summaryMyCost = rowMyCost > 0 ? rowMyCost : metrics.myCost;
       const summaryTotalProfit = summaryTotalSales - summaryMyCost;
 
       return {
@@ -2470,8 +2470,10 @@ export function DashboardDrillDown({
     <div className="animate-in slide-in-from-right-4 duration-300">
       <div className="flex items-center gap-4 mb-6">
         <button
+          type="button"
           onClick={onBack}
-          className="p-2 rounded-xl bg-card border border-border shadow-sm hover:bg-muted transition-colors"
+          aria-label="Back to dashboard overview"
+          className="size-11 min-w-11 min-h-11 rounded-xl bg-card border border-border shadow-xs hover:bg-muted flex items-center justify-center transition-all cursor-pointer touch-manipulation active:scale-95"
         >
           <ArrowLeft className="size-5" />
         </button>

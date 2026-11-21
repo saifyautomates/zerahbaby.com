@@ -738,13 +738,6 @@ export function AdminPage() {
         onClose={() => setIsSearchOpen(false)}
         onNavigate={handleAdminNavigate}
       />
-      {/* Mobile Overlay */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
 
       {/* Desktop Sidebar */}
       <aside className="hidden w-64 flex-col border-r border-border bg-card/60 backdrop-blur-md lg:flex">
@@ -820,12 +813,30 @@ export function AdminPage() {
 
       {/* Mobile Drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation Menu"
+          className="fixed inset-0 z-50 lg:hidden"
+        >
+          {/* Backdrop: clicking or tapping anywhere on the darkened screen closes the drawer */}
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in"
+            role="button"
+            tabIndex={0}
+            aria-label="Close navigation menu backdrop"
             onClick={() => setIsMobileMenuOpen(false)}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              setIsMobileMenuOpen(false);
+            }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer touch-manipulation"
           />
-          <div className="relative flex w-72 flex-col bg-card border-r border-border p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-2xl animate-in slide-in-from-left duration-200">
+
+          {/* Drawer Sidebar */}
+          <div
+            className="relative z-10 flex h-full w-72 max-w-[85vw] flex-col bg-card border-r border-border p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-2xl animate-in slide-in-from-left duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-border pb-4">
               <Link
                 to="/"
@@ -843,8 +854,9 @@ export function AdminPage() {
                 <BrandName size="sm" />
               </Link>
               <button
+                type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted transition"
+                className="size-10 min-w-10 min-h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all cursor-pointer touch-manipulation"
                 aria-label="Close menu"
               >
                 <X className="h-5 w-5" />
@@ -858,13 +870,14 @@ export function AdminPage() {
                 return (
                   <button
                     key={item.key}
+                    type="button"
                     onClick={() => {
                       setTab(item.key);
                       setIsMobileMenuOpen(false);
                     }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-bold transition-all cursor-pointer touch-manipulation active:scale-[0.98] ${
                       active
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-primary text-primary-foreground shadow-xs"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
@@ -878,14 +891,19 @@ export function AdminPage() {
             <div className="border-t border-border pt-4 space-y-1">
               <Link
                 to="/"
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted cursor-pointer"
               >
                 <Store className="h-4 w-4" />
                 <span>View live store</span>
               </Link>
               <button
-                onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/" }))}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold text-destructive hover:bg-destructive/10"
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  supabase.auth.signOut().then(() => navigate({ to: "/" }));
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold text-destructive hover:bg-destructive/10 cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
                 <span>Sign out</span>
